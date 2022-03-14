@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+  <meta charset="utf-8" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;700&display=swap" rel="stylesheet">
+  <style type="text/css">
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@100;700&display=swap');
+    
+    * { padding: 0; margin: 0; }
+    html, body {
+        min-height: 100% !important;
+        height: 100%;
+        overflow-x: hidden;
+        text-align:center;
+        font-family: sans-serif;
+        /*font-family: Roboto;*/
+    }
+    
+    .button{
+      border-radius:10px;
+      font-size: 3vw;
+      cursor:pointer;
+    }
+
+    .button:hover{
+      background-color: #ddd;
+    }
+
+    #editPanel{
+      width:100%;
+      /*font-size: 2.5vw;*/
+    }
+
+
+  </style>
+</head>
+<body>
+    
+    <textarea id="editPanel" rows="10"></textarea>
+    <div id="saveButton" class="button" onclick="saveTrackerParams();">save</div>
+    <div id="err"></div><a href="index.html">←back</a>
+</body>
+
+<script type="text/javascript">
+    window.onerror = function myErrorHandler(errorMsg, url, lineNumber) {
+        document.getElementById("err").innerHTML="Error occured: " + errorMsg;
+        return false;
+      };
+
+    //Attributes of the visualization. Need to be updated/newly specified for each cycle.  
+    var CYCLE = 12;
+    var VERSION = 1;
+    var AUTHOR = "WW";
+    var SHORT_NAME = "OneLineDash";
+    var NAME = CYCLE + "_" + VERSION + "_" + AUTHOR + "_" + SHORT_NAME;
+
+    //Key to access the data in the local storage
+    var LOCAL_STORAGE_KEY = NAME; 
+
+    //Get a JSON object from the local storage with as specified key
+    function getItemFromLocalStorage(key) {
+      if (typeof(Storage) !== "undefined") {
+        return JSON.parse(localStorage.getItem(key));
+      } else {
+        Console.log("Local Storage not supported");
+      }
+    }
+
+    //Save a JSON object to the local storage with as specified key
+    function setItemToLocalStorage(key, value) {
+      if (typeof(Storage) !== "undefined") {
+        localStorage.setItem(key, JSON.stringify(value));
+      } else {
+        Console.log("Local Storage not supported");
+      }
+    }
+
+    // Load any custom tracker data from local storage and set text are
+    function loadTrackerParams(){
+      var trackerParams = getItemFromLocalStorage(LOCAL_STORAGE_KEY+"_TRACKERS");
+      document.getElementById("editPanel").value = trackerParams;
+      return trackerParams;
+    }
+
+    // Save all tracker params from the text area to local storage
+    function saveTrackerParams(){
+      var trackerParams = document.getElementById("editPanel").value;
+      setItemToLocalStorage(LOCAL_STORAGE_KEY+"_TRACKERS",trackerParams);
+      return trackerParams;
+    }
+
+    // Load saved params on page load
+    loadTrackerParams()
+
+</script>
+</html>

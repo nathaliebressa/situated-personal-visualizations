@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+  <meta charset="utf-8" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;700&display=swap" rel="stylesheet">
+  <style type="text/css">
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@100;700&display=swap');
+    
+    * { padding: 0; margin: 0; }
+    html, body {
+        min-height: 100% !important;
+        height: 100%;
+        overflow-x: hidden;
+        text-align:center;
+        font-family: Roboto;
+    }
+    
+    iframe{
+        width:100vw;
+        height:13vw;
+        border: none;
+        border-bottom: 1px solid #f5f5f5;
+        overflow: hidden;
+    }
+
+    .button{
+      border-radius:10px;
+      font-size: 3vw;
+      cursor:pointer;
+    }
+
+    .button:hover{
+      background-color: #ddd;
+    }
+
+  </style>
+</head>
+<body>
+  <div id="err"></div>
+  <div id="trackersPanel"></div>
+  <a id="editButton" class="button" href="config.html">edit</a>
+</body>
+<script type="text/javascript">
+    window.onerror = function myErrorHandler(errorMsg, url, lineNumber) {
+        document.getElementById("err").innerHTML="Error occured: " + errorMsg;
+        return false;
+      };
+
+    //Attributes of the visualization. Need to be updated/newly specified for each cycle.  
+    var CYCLE = 12;
+    var VERSION = 1;
+    var AUTHOR = "WW";
+    var SHORT_NAME = "OneLineDash";
+    var NAME = CYCLE + "_" + VERSION + "_" + AUTHOR + "_" + SHORT_NAME;
+
+    //Key to access the data in the local storage
+    var LOCAL_STORAGE_KEY = NAME; 
+
+    //Get a JSON object from the local storage with as specified key
+    function getItemFromLocalStorage(key) {
+      if (typeof(Storage) !== "undefined") {
+        return JSON.parse(localStorage.getItem(key));
+      } else {
+        Console.log("Local Storage not supported");
+      }
+    }
+
+    // Load any custom tracker data from local storage
+    function loadTrackerParams(){
+      var trackerParams = getItemFromLocalStorage(LOCAL_STORAGE_KEY+"_TRACKERS");
+      return trackerParams;
+    }
+
+    // Populate IFrames for each tracker
+    function createTrackerIFrames(trackerParams){
+      var trackersList = trackerParams.split(",");
+      var panel = document.getElementById("trackersPanel");
+      panel.innerHTML = ""; // Clear existing panels
+      for(var i=0; i < trackersList.length; i++){
+        if(trackersList[i].length > 0){
+          var iframe = document.createElement("iframe");
+          iframe.className = "tracker";
+          iframe.src = "../12_1_WW_OneLine/index.html?" + trackersList[i];
+          panel.appendChild(iframe);
+        }
+      }
+    }
+
+    // Populate IFrames on first load
+    createTrackerIFrames(loadTrackerParams());
+
+</script>
+</html>

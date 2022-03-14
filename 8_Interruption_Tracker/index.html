@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+  <meta charset="utf-8" />
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <style>
+    #vis, #right {
+      float:left;
+    }
+    #vis { 
+      width: 70%!important; 
+    }
+    #right {
+      width: 30%;
+      height: 400px;
+      display:flex;
+      flex-direction: column;
+      justify-content: center;
+      font-size:5em;
+      text-align:center;
+      padding: 1em;
+    }
+    #right #interval{
+      padding-bottom: 1em;
+    }
+    #right button{
+      
+    }
+    .btn-xl {
+      padding: 12px 30px;
+      font-size: 35px;
+      border-radius: 10px;
+    }
+    body{
+      background-color: black;
+      color: white;
+      font: sans-serif;
+    }
+  </style>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/vega@5.7.2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@4.0.0-beta.10"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@5.1.3"></script>
+
+  <style media="screen">
+    /* Add space between Vega-Embed links  */
+    .vega-actions a {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+
+
+  <div id="content" class="container-fluid justify-content-center m-4">
+
+    <div class="btn-group">
+      <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Menu</button>
+      <div class="dropdown-menu">
+        <a class="dropdown-item" href="#" onclick="toggleFullScreen()">Fullscreen</a>
+        <a class="dropdown-item" href="#" onclick="undo()">Undo</button>
+        <a class="dropdown-item" href="#" onclick="saveJSONFile()">Save JSON</a>
+        <!-- <a class="dropdown-item" href="#" onclick="clearData()">Clear Data (not reversible)</a> -->
+      </div>
+    </div>
+
+    <!-- Container for the visualization -->
+    <div id="vis"></div>
+    <div id="right">
+      <div style="font-size:initial;">Last entry:</div>
+      <div id="interval"></div>
+      <button type="button" class="btn btn-outline-primary btn-xl" onclick="addEvent()">Log</button>
+    </div>
+    
+</div>
+</body>
+<script>
+
+
+      //Attributes of the visualization. Need to be updated/newly specified for each cycle.  
+      let CYCLE = 3;
+      let VERSION = 1;
+      let AUTHOR = "ww"
+      let SHORT_NAME = "hour"
+      let NAME = CYCLE + "_" + VERSION + "_" + AUTHOR + "_" + SHORT_NAME;
+
+      //Key to access the data in the local storage
+      let LOCAL_STORAGE_KEY = NAME; 
+
+      //The data that is displayed in the visualization
+      var data;
+      var visData; //for this vis, vis uses a simpler dataset derived from the logged data
+
+      // Assign the specification to a local variable vlSpec.
+      var vlSpec = {
+        "background": "black",
+        "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
+        "data": {
+          "values": visData,
+          "name": "dataset"
+        },
+        "width": "container",
+        "height": 420,
+        "title": "",
+        "config": {
+          "view": {
+            "strokeWidth": 0
+          }, 
+          "axis": {
+            "labelFontSize": 30,
+            "labelFontWeight":"bold"
+          }
+        },
+        "mark": "bar",
+        "encoding": {
+          "x": {
+            "aggregate": "count",
+            "type": "quantitative",
+            "axis": {
+              "tickCount": 2,
+              "title": "",
+              "labelColor": "white",
+              "tickColor": "white"
+            }
+          },
+          "y": {
+            "field": "hoursAgo",
+            "type": "ordinal",
+            "axis": {
+              "title": "hours ago",
+              "labelColor": "white",
+              "tickColor": "white"
+            },
+            "scale": {"domain": [0,1,2,3,4,5]}
+          },
+          "color": { 
+            "value": "#f03a5c"
+          }
+      }
+    };
+
+    function updateInterval(){
+        var intervalDiv = document.getElementById("interval");
+        if(data.length > 0){
+          var interval = Date.now()-data[data.length - 1].timestamp;
+          var intervalS = Math.floor(interval/1000%60);
+          var intervalM = Math.floor(interval/(60*1000));
+          var intervalH = Math.floor(interval/(60*60*1000));
+          var intervalD = Math.floor(interval/(24*60*60*1000));
+          if(intervalD >= 3)
+            intervalDiv.innerHTML = intervalD + " Days";
+          else if(intervalH >= 3)
+            intervalDiv.innerHTML = intervalH + " Hours";
+          else if(intervalM >= 1)
+            intervalDiv.innerHTML = intervalM + " Mins";
+          else intervalDiv.innerHTML = "<1 Min";
+        }
+        else{
+          intervalDiv.innerHTML = "No Data";
+        }
+    }
+
+
+    function addEvent(type) {
+        var event = createEvent(type);
+        data.push(event);
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+    }
+
+      //Clears all data
+      function clearData() {
+        data = [];
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+      }
+
+      //Removes the last added event from the array. You can't undo clear at the moment.
+      function undo() {
+        data.pop();
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+      }
+
+      //Updates the view of the vega lite visualizaiton
+      function updateView() {
+        
+        // SPECIAL FOR THIS VIS
+        var visData = [];
+        for(var i=0;i<data.length;i++){
+          var now = Date.now();
+          var hoursAgo = Math.floor((Date.now() - data[i].timestamp)/(60*60*1000));
+          if(hoursAgo < 5){
+            visData.push({'hoursAgo': hoursAgo});
+          }
+        }
+        // ---------
+        let changeset = vega.changeset().remove(() => true).insert(visData);
+        view.change('dataset', changeset).run()
+
+        updateInterval(); //Added for this version!
+      }
+
+
+      //Toggle between fullscreen and normal browser view
+      function toggleFullScreen() {
+        if (document.fullscreenElement) { 
+          document.exitFullscreen() 
+        } else { 
+          document.documentElement.requestFullscreen() 
+        }     
+      }
+
+      //Get a JSON object from the local storage with as specified key
+      function getItemFromLocalStorage(key) {
+        if (typeof(Storage) !== "undefined") {
+          return JSON.parse(localStorage.getItem(key));
+        } else {
+          Console.log("Local Storage not supported");
+        }
+      }
+
+      //Save a JSON object to the local storage with as specified key
+      function setItemToLocalStorage(key, value) {
+        if (typeof(Storage) !== "undefined") {
+          localStorage.setItem(key, JSON.stringify(value));
+        } else {
+          Console.log("Local Storage not supported");
+        }
+      }
+
+      //Gets the data from the local storage. If there is no data in the local storage, creates an empty array
+      function intitalizeData() {
+        var localStorageData = getItemFromLocalStorage(LOCAL_STORAGE_KEY)
+        if (localStorageData) {
+          data = localStorageData;
+        }
+        else {
+          data = [];
+        }
+      }
+
+      //Creates a generic event with date, timestamp,cycle, version, author and name
+      function createGenericEvent() {
+        return { 
+          id:         uuidv4(),                  //Unique ID of the event object
+          date:       (new Date()).toString(),   //Date as String
+          timestamp:  Date.now(),                //Timestamp in milliseconds - for UNIX time stamp convert to seconds
+          cycle:      CYCLE,                      //Starting from 1 for the first cycle
+          version:    VERSION,                   //Starting from 1 for the current visualization 
+          author:     AUTHOR,                    //Author initials (e.g. nb for Nathalie Bressa)
+          name:       NAME,                      //Name of the visualiztion in the format cycle_version_author_shortname
+        };
+      }
+
+      //Add any additional attributes to the event that are specific to the visualization. In this case, add a type to the event.
+      function createEvent(type) {
+        var event = createGenericEvent();
+        event.type = type;
+        return event;
+      }
+
+      //Saves a json file of the current data with the specified name of the visualization
+      function saveJSONFile() {
+        downloadFile(data, NAME + '.json', 'text/plain');
+      }
+
+      //Downloads a file with the specified content, filename and content type
+      function downloadFile(content, fileName, contentType) {
+        var a = document.createElement("a");
+        var file = new Blob([JSON.stringify(content)], {type: contentType});
+        a.href = URL.createObjectURL(file);
+        document.body.appendChild(a);
+        a.download = fileName;
+        a.click();
+      }
+
+      //Generates a UUID for an event object
+      function uuidv4() {
+        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+          (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+          );
+      }
+
+      //Embedd visualziation into container with id 'vis', intitialize the data and update the view
+      vegaEmbed('#vis', vlSpec).then(function(result) {
+        window.view = result.view;
+        intitalizeData();
+        let changeset = vega.changeset().remove(() => true).insert(data);
+        result.view.change('dataset', changeset).run();
+
+        window.dispatchEvent(new Event('resize'));
+        updateInterval(); //Added for this version!
+        updateView();
+      });
+
+      setInterval(function(){
+        updateInterval();
+        updateView();
+      },60000);
+
+
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+    </html>

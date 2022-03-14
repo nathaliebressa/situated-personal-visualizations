@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+  <meta charset="utf-8" />
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <style>
+    @import url('https://fonts.googleapis.com/css?family=Oswald&display=swap');
+
+    #top {
+      position: absolute;
+      padding:10px;
+      z-index:200;
+      background:black;
+      line-height: 2em;
+    }
+
+    #top>div{
+      display:inline;
+      margin-right: 10px;
+    }
+
+    .btn-info{
+      background-color: #20c997;
+      border-color: #109362;;
+    }
+
+    #visHolder{
+      position: absolute;
+      top: 50px;
+      bottom: 0px;
+      left:0px;
+      right:0px;
+      overflow: hidden scroll;
+    }
+
+    #vis { 
+      width: 98%;
+      height:1000px;
+    }
+
+    #labelInput{
+      color: white;
+      background: #1a1a1a;
+      border:none;
+      border-bottom: 2px solid white;
+      padding: 5px;
+    }
+
+
+    .series:first-of-type .entry circle, .series:first-of-type .gap text{
+      fill: #20c997;
+    }
+
+    .series:first-of-type .gap rect{
+      fill: #20c997b5;
+    }
+
+    .series:first-of-type>text:first-of-type{
+      fill: #20c997;
+    }
+
+    .series>text:first-of-type{
+      fill: #007bff;
+    }
+
+    .entry circle{
+      fill: #007bff;
+      stroke: black;
+    }
+
+    .entry text{
+      fill: white;
+      font-size: .9em;
+    }
+
+    .gap rect{
+      fill: #007bffb5;
+    }
+
+    .gap text{
+      fill: #007bff;
+      font-size: .8em;
+      text-anchor: middle;
+    }
+
+    .day .circle{
+      border-radius: 400px;
+      background: radial-gradient(circle, rgba(2,0,36,0.63) 0%, rgba(151,0,255,0.63) 100%);
+      z-index: -100;
+    }
+
+    .btn-xl {
+      padding: 12px 30px;
+      font-size: 35px;
+      border-radius: 10px;
+    }
+    body{
+      background-color: black;
+      color: white;
+      font: sans-serif;
+    }
+  </style>
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+</head>
+<body>
+
+  <div id="top">
+    <div class="btn-group">
+      <button type="button" class="btn btn-secondary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Menu</button>
+      <div class="dropdown-menu">
+        <a class="dropdown-item" href="#" onclick="undo()">Undo</a>
+        <a class="dropdown-item" href="#" onclick="saveJSONFile()">Save JSON</a>
+        <a class="dropdown-item" href="#" onclick="toggleFullScreen()">Fullscreen</a>
+        <!-- <a class="dropdown-item" href="#" onclick="clearData()">Clear Data (not reversible)</a> -->
+      </div>
+      <input id="labelInput" placeholder="Label"></div>
+      <div id="addButton" type="button" class="btn btn-info" 
+           onclick="addMiddleEntry()">Log</div>
+      <div id="startButton" type="button" class="btn btn-primary"
+           onclick="addStartEntry()">New</div>
+      <div style="font-size:initial;">Last entry:</div>
+      <div id="interval"></div>
+    </div>
+  </div>
+
+  <!-- Container for the visualization -->
+  <div id="visHolder">
+    <svg id="vis"></svg>
+  </div>
+    
+</body>
+<script>
+
+
+      //Attributes of the visualization. Need to be updated/newly specified for each cycle.  
+      let CYCLE = 8;
+      let VERSION = 1;
+      let AUTHOR = "b"
+      let SHORT_NAME = "kitchen"
+      let NAME = CYCLE + "_" + VERSION + "_" + AUTHOR + "_" + SHORT_NAME;
+
+      //Key to access the data in the local storage
+      let LOCAL_STORAGE_KEY = NAME; 
+
+      //The data that is displayed in the visualization
+      var data;
+
+      //Unique to this version - stores the time of the first event in the current ongoing series (if one exists)
+      var parentTime = null;
+
+
+      function addStartEntry(){
+        let labelInput = document.getElementById("labelInput");
+        addEvent(labelInput.value,"START");
+        let input = document.getElementById("labelInput")
+        input.value = '';
+        input.focus();
+      }
+
+      function addMiddleEntry(){
+        let labelInput = document.getElementById("labelInput");
+        addEvent(labelInput.value,"EVENT",parentTime);
+        let input = document.getElementById("labelInput")
+        input.value = '';
+        input.focus();
+      }
+
+
+      //creates a new entry using the label from another one
+      function addEntryByCopy(entryData){
+        addEvent(entryData.label, entryData.eventType,parentTime);
+      }
+
+      function addEvent(label,eventType,parentTime=null) {
+        var event = createEvent(label,eventType,parentTime);
+        data.push(event);
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+      }
+
+      //Clears all data
+      function clearData() {
+        data = [];
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        location.reload();
+      }
+
+      //Removes the last added event from the array. You can't undo clear at the moment.
+      function undo() {
+        data.pop();
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+        updateInterval();
+      }
+
+      //Toggle between fullscreen and normal browser view
+      function toggleFullScreen() {
+        if (document.fullscreenElement) { 
+          document.exitFullscreen() 
+        } else { 
+          document.documentElement.requestFullscreen() 
+        }     
+      }
+
+      //Get a JSON object from the local storage with as specified key
+      function getItemFromLocalStorage(key) {
+        if (typeof(Storage) !== "undefined") {
+          return JSON.parse(localStorage.getItem(key));
+        } else {
+          Console.log("Local Storage not supported");
+        }
+      }
+
+      //Save a JSON object to the local storage with as specified key
+      function setItemToLocalStorage(key, value) {
+        if (typeof(Storage) !== "undefined") {
+          localStorage.setItem(key, JSON.stringify(value));
+        } else {
+          Console.log("Local Storage not supported");
+        }
+      }
+
+      //Gets the data from the local storage. If there is no data in the local storage, creates an empty array
+      function intitializeData() {
+        var localStorageData = getItemFromLocalStorage(LOCAL_STORAGE_KEY)
+        if (localStorageData) {
+          data = localStorageData;
+        }
+        else {
+          data = [];
+        }
+      }
+
+      //UNIQUE TO THIS VIS - Parse the current data to see if there is a currently running event series and return it (null otherwise)
+      function getParentTime(){
+        let parentTimeVal = null;
+        for(let i=data.length - 1; i >= 0; i--){
+          if(data[i].eventType == "START")
+            return data[i].timestamp;
+        }
+        return null;
+      }
+
+      //Updates the view visualization
+      function updateView() {
+        // Check to see what the parent time is each time the view updates (are we currently in a series?)
+        parentTime = getParentTime();
+
+        // Only enable the Add button if we're in an ongoing session
+        document.getElementById("addButton").style.display = (parentTime==null ? "None" : "");
+
+        // Group data points into series based on their start times
+        let groupedByStart = d3.nest().key(d => d.parentTime).entries(data).reverse();
+
+        let topPadding = 100;
+        let leftPadding = 120;
+        let rightPadding = 50;
+        let seriesHeight = 40;
+        let seriesSpacing = 40;
+        let entryRadius = 10;
+        let lineWidth = 5;
+
+        // Resize Vis
+        let vis = d3.select("#vis");
+        vis.node().style.height = groupedByStart.length * (seriesHeight + seriesSpacing) + topPadding + "px";
+
+        // Configure X-axis scale
+        var x = d3.scaleLinear()
+                .domain([0, d3.max(data,d => d.timestamp - d.parentTime)])
+                .range([leftPadding,vis.node().clientWidth - rightPadding]);
+
+        // Add and/or update each series
+        let series = vis.selectAll(".series").data(groupedByStart, d=>d.key)
+          .join(
+            enter => {
+              enter = enter.append("g").attr("class","series");
+              enter.append("text").text(d=> d.values[0].label)
+                .attr("fill","white").attr("font-size",".9em")
+                .attr("transform","translate(15,-22)");
+              enter.append("text").text(d=> 
+                  (new Date(Number(d.key))).toDateString().slice(0,10))
+                .attr("fill","#aaa")
+                .attr("transform","translate(15,-5)");;
+              enter.append("text").text(d=> 
+                  (new Date(Number(d.key))).toTimeString().slice(0,5))
+                .attr("fill","white").attr("font-size","1.2em")
+                .attr("transform","translate(15,15)");
+              
+              return enter;
+            },
+            update => update,
+            exit => exit.remove()
+          )
+          .attr("transform",(d,i)=>"translate(0," + (i * (seriesHeight + seriesSpacing) + topPadding) + ")");
+
+
+        // Add and/or update entries inside each series
+        let entries = series.selectAll(".entry").data(d=>d.values)
+          .join(
+            enter => {
+              enter = enter.append("g").attr("class","entry");
+              enter.append("circle").attr("r",entryRadius);
+              enter.append("text")
+                .attr("transform",d=>"rotate(-45) translate(" + 1.2*entryRadius + "," + .5*entryRadius + ")")
+                .text(d=>d.label)
+              //clicks on entries add new matching ones
+              enter.on("click",addEntryByCopy);
+              return enter;
+            },
+            update => update,
+            exit => exit.remove()
+          )
+          .attr("transform",d=>"translate(" + x(d.timestamp - d.parentTime) + ",0)");
+
+          // Add and/or update gap bars between entries
+          let gaps = series.selectAll(".gap").data(d=>{
+              let vals = d.values;
+              let gapData = []
+              for(let i = 0; i < vals.length - 1;i++){
+                gapData.push({"start":vals[i].timestamp - vals[i].parentTime, 
+                             "duration":vals[i+1].timestamp - vals[i].timestamp});
+              }
+              return gapData;
+            }).join(
+              enter => {
+                enter = enter.append("g").attr("class","gap");
+                enter.append("rect").attr("height",lineWidth)
+                enter.append("text")
+                return enter;
+              },
+              update => update,
+              exit => exit.remove()
+            )
+            .attr("transform",d=>"translate(" + (x(d.start)+entryRadius) + "," + -.5*lineWidth + ")");
+
+          d3.selectAll(".gap rect").attr("width",d=>x(d.duration)-x(0)-2*entryRadius);
+          d3.selectAll(".gap text").text(d=>formatGapTimes(d.duration))
+            .attr("transform",d=>"translate(" + (x(d.duration)-x(0))/2 + "," + -.5*lineWidth + ")");
+
+          // Update interval
+          updateInterval();
+      }
+
+
+      function formatGapTimes(timestamp){
+        var intervalTS = (timestamp/1000%60).toFixed(1);
+        var intervalS = Math.floor(timestamp/1000%60);
+        var intervalM = Math.floor(timestamp/(60*1000)%60);
+        var intervalH = Math.floor(timestamp/(60*60*1000)%24);
+        var intervalD = Math.floor(timestamp/(24*60*60*1000));
+        if(intervalD >= 1)
+          return intervalD + "d" + intervalH + "h";
+        else if(intervalH >= 1)
+          return intervalH + "h" + intervalM;
+        else if(intervalM >= 1)
+          return intervalM + "m" + intervalS + "s";
+        else if(intervalS >= 10)
+          return intervalS + "s";
+        else return intervalTS + "s";
+      }
+
+
+      //Creates a generic event with date, timestamp,cycle, version, author and name
+      function createGenericEvent() {
+        return { 
+          id:         uuidv4(),                  //Unique ID of the event object
+          date:       (new Date()).toString(),   //Date as String
+          timestamp:  Date.now(),                //Timestamp in milliseconds - for UNIX time stamp convert to seconds
+          cycle:      CYCLE,                      //Starting from 1 for the first cycle
+          version:    VERSION,                   //Starting from 1 for the current visualization 
+          author:     AUTHOR,                    //Author initials (e.g. nb for Nathalie Bressa)
+          name:       NAME,                      //Name of the visualiztion in the format cycle_version_author_shortname
+        };
+      }
+
+      //Add any additional attributes to the event that are specific to the visualization.
+      function createEvent(label,eventType,parentTime=null) {
+        var event = createGenericEvent();
+        event.label = label;
+        event.eventType = eventType;
+        event.parentTime = parentTime;
+        if(eventType=="START") 
+          event.parentTime = event.timestamp;
+        return event;
+      }
+
+      //Saves a json file of the current data with the specified name of the visualization
+      function saveJSONFile() {
+        downloadFile(data, NAME + '.json', 'text/plain');
+      }
+
+      //Downloads a file with the specified content, filename and content type
+      function downloadFile(content, fileName, contentType) {
+        var a = document.createElement("a");
+        var file = new Blob([JSON.stringify(content)], {type: contentType});
+        a.href = URL.createObjectURL(file);
+        document.body.appendChild(a);
+        a.download = fileName;
+        a.click();
+      }
+
+      //Generates a UUID for an event object
+      function uuidv4() {
+        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+          (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+          );
+      }
+
+      // --- this version is all different, no Vega Lite 
+      function initAndUpdate(){
+        intitializeData();
+        updateView();
+        window.addEventListener("resize", updateView);
+      }
+      initAndUpdate();
+
+
+      // Last entry timer update handler
+     function updateInterval(){
+        var intervalDiv = document.getElementById("interval");
+        if(data.length > 0){
+          var interval = Date.now()-data[data.length - 1].timestamp;
+          var intervalS = Math.floor(interval%(1000*60));
+          var intervalM = Math.floor(interval/(60*1000)%60);
+          var intervalH = Math.floor(interval/(60*60*1000)%24);
+          var intervalD = Math.floor(interval/(24*60*60*1000));
+          if(intervalD >= 3)
+            intervalDiv.innerHTML = intervalD + " Days";
+          else if(intervalH >= 3)
+            intervalDiv.innerHTML = intervalH + " Hours";
+          else if(intervalM >= 1)
+            intervalDiv.innerHTML = intervalM + " Mins";
+          else intervalDiv.innerHTML = "<1 Min";
+        }
+        else{
+          intervalDiv.innerHTML = "No Data";
+        }
+      }
+
+      // update the interval timer periodically
+      setInterval(function(){
+        updateInterval();
+      },60000);
+
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+    </html>

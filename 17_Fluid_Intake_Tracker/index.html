@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Fluid intake</title>
+  <meta charset="utf-8" />
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+  <!-- Flatpickr DateTime Picker -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;700&display=swap" rel="stylesheet">
+  <script src="https://kit.fontawesome.com/0d6c8ad1ff.js" crossorigin="anonymous"></script>
+  <style>
+    body{
+      background-color: black;
+      font-family: "Roboto", sans-serif;
+      color: white;
+    }
+
+    #interval {
+        padding-left: 1em;
+    }
+
+    #vis {
+      margin: 0 auto;
+      /*width: 80%!important;*/
+      /*background:#16181e;*/
+      background: black;
+    }
+
+    .btn-l {
+      background-color: #333;
+      color: white;
+      padding: 2px 20px;
+      font-size: 20px;
+      border-radius: 10px;
+      width: 160px;
+      margin-right: 10px;
+      margin-left: 10px;
+      text-align: center;
+    }
+
+    .btn-xl {
+      background-color: #333;
+      color: white;
+      padding: 2px 30px;
+      font-size: 33px;
+      border-radius: 10px;
+      width: 150px;
+      margin-right: 15px;
+      margin-left: 15px;
+      text-align: center;
+    }
+
+    .btn-yes{ 
+      color: orange; 
+      background-color: #FFFFFF; 
+      border-color: orange; 
+    } 
+
+
+    .btn-no { 
+      color: #6495ED; 
+      background-color: #FFFFFF; 
+      border-color: #6495ED; 
+    } 
+
+    .btn-undo{
+      width: 100px;
+    }
+
+    .yesterday{
+      margin-left: 6rem;
+      margin-bottom: 0rem;
+      font-size: 25px;
+      margin-top: 1rem;
+    }
+
+    .today {
+      margin-left: 6rem;
+      margin-bottom: 0rem;
+      font-size: 25px;
+      margin-top:2rem;
+    }
+
+    .title h1 {
+        font-size: 1.5em;
+    }
+
+    h1 {
+      font-size: 3.5rem;
+    }
+
+    button:focus {
+      box-shadow: none !important;
+      outline:0 !important;
+    }
+    button:active {
+      background: #f1f1f1;
+      color: #000;
+    }
+    label.active {
+      font-weight: bold;
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/vega@5.7.2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@4.0.0-beta.10"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@5.1.3"></script>
+</head>
+<body>
+
+
+  <div id="content" class="container-fluid justify-content-center">
+
+    <div class="row justify-content-center">
+      <div class="btn-group-vertical">
+        <div class="btn-group">
+          <button type="button" class="btn btn-outline-dark dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"></button>
+          <div class="dropdown-menu">
+            <a class="dropdown-item" href="#" onclick="toggleFullScreen()">Fullscreen</a>
+            <a class="dropdown-item" href="#" onclick="saveJSONFile()">Save JSON</a>
+            <!-- <a class="dropdown-item" href="#" onclick="clearData()">Clear Data (not reversible)</a> -->
+            <!-- <a class="dropdown-item" href="#" onclick="clearSpecific()">Delete entry #6</a> -->
+          </div>
+
+        </div>
+        <button type="button" class="btn btn-outline-dark btn-undo" onclick="undo()">Undo</button>
+      </div>
+      <div class="title m-4">
+        <h1>Fluid intake tracker</h1>
+      </div>
+      <div class="btn-group m-4">
+        <div class="flatpickr" id="datePicker">
+            <span>When are you tracking?</span>
+            <input type="text" placeholder="Now" data-input>
+            <a id="toggleButton" class="input-button" title="backfill" data-toggle><i class="fas fa-history"></i></a>
+            <a id="nowButton" class="input-button" title="now" data-clear><i class="fas fa-calendar-day"></i></a>
+        </div>
+        <div id="interval"></div>
+    </div>
+
+        
+      </div>
+
+
+    <!-- Container for the visualization -->
+    <div class="row justify-content-center p-2">
+      <div id="vis" class="col-xs-12"></div>
+    </div>
+
+    <div class="row justify-content-center my-1 mx-2">
+          <div id="person" class="btn-group btn-group-toggle" data-toggle="buttons">
+            <label class="btn active btn-dark btn-l btn-person">
+                <input type="radio" name="options" id="option1" value="J">👨🏻‍💻 J</label>
+            <label class="btn btn-dark btn-l btn-person">
+              <input type="radio" name="options" id="option2" value="L">👩🏻‍🎨 L</label>
+          </div>
+        </div>
+    <div class="row justify-content-center my-1 mx-2">
+      <div class="m-auto col-xs-8 col-md-10">
+        <button type="button" class="btn-l m-2" onclick="addEvent('water')">🚰 Water</button>
+        <button type="button" class="btn-l m-2" onclick="addEvent('juice')">🍏 Juice</button>
+        <button type="button" class="btn-l m-2" onclick="addEvent('milk')">🥛 Milk</button>
+        <button type="button" class="btn-l m-2" onclick="addEvent('coffee')">☕ Coffee</button>
+        <button type="button" class="btn-l m-2" onclick="addEvent('honey')">🍯🍋 Honey</button>
+        <button type="button" class="btn-l m-2" onclick="addEvent('beer')">🍺 Beer</button>
+        <button type="button" class="btn-l m-2" onclick="addEvent('wine')">🍷 Wine</button>
+      </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+<script>
+    Date.prototype.getWeekDay = function() {
+        var weekday = ["Sun", "Mon", "Tue", "Wed", "Thur", "Fri", "Sat"];
+        return weekday[this.getDay()];
+    }
+
+    //Attributes of the visualization. Need to be updated/newly specified for each cycle.  
+    let CYCLE = 10;
+    let VERSION = 1;
+    let AUTHOR = "JV"
+    let SHORT_NAME = "fluid-intake"
+    let NAME = CYCLE + "_" + VERSION + "_" + AUTHOR + "_" + SHORT_NAME;
+
+    //Key to access the data in the local storage
+    let LOCAL_STORAGE_KEY = NAME;
+
+    //The data that is displayed in the visualization
+    var data;
+
+    var dataLastSevenDays = [];
+
+    var lastSevenWeekdays = createDayDomain();
+
+    var today = new Date();
+    
+    // Assign the specification to a local variable vlSpec.
+    var vlSpec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
+        "width": $(window).width() / 4, // could also use $('#content').width()
+        "height": $(window).height() / 4,
+        //"width": "container",
+        //"height": "container",
+        "background": "black",
+        /*"autosize": { "resize": true, "type": "fit" },*/
+        "config": {
+            "axis": {
+              "labelFontSize": 20,
+              "labelColor": "white",
+            }, 
+        },
+        "title": {
+            "text": "Today",
+            "color": "white",
+            "anchor": "middle",
+            "fontSize": 25
+        },
+        "layer": [
+            {
+                "data": {
+                    "values": dataLastSevenDays,
+                    "name": "dataset"
+                },
+                "mark": {"type": "bar", "cornerRadiusEnd": 4, "width": 17},
+                "encoding": {
+                    "column": {
+                        "timeUnit": "day",
+                        "field": "date",
+                        "type": "ordinal",
+                        "spacing": 5,
+                        "axis": { 
+                            "title": "",
+                        },
+                        "labelColor": "white", 
+                        "labelFontSize": 30 
+                    },
+                    "x": {
+                        "field": "person", 
+                        "type": "nominal",
+                        "axis": {"title": "", "labelColor": "white", "labelFontSize": 15 }
+                    },
+                    "y": {
+                        "aggregate": "count",
+                        "type": "quantitative",
+                        "axis": {"title": "Glasses", "titleColor": "white", "labelColor": "white", "tickColor": "#f1f1f1", "labelFontSize": 15, "titleFontSize": 20 }
+                    },
+                    "color": {
+                        "field": "drink",
+                        "type": "nominal",
+                        "scale": {
+                            "domain": ["water", "juice", "milk", "coffee", "honey", "beer", "wine"],
+                            "range": ["#84B8D5", "#E3FBA6", "#F9F8F3", "#423025", "#d6ac38", "#FFDA33", "#C70D06"]
+                        },              
+                      "legend": {"title": "Drink type", "titleColor": "white", "titleFontSize": 20, "labelColor": "white", "labelFontSize": 20 }
+                      
+                    }
+                }
+
+            },
+            {
+                "data": {"name": "data-272c8c1d8669c8d374081708f30ff450"},
+                "mark": {"type": "rule", "strokeWidth": 5},
+                "encoding": {
+                    //"color": {"type": "nominal", "field": "gender", "title": "Recommended Daily"},
+                    "color": {"type": "nominal", "field": "gender", "title": ""},
+                    "y": {"type": "quantitative", "field": "recommended"}
+                }
+            }
+        ],
+        "datasets": {
+            "data-272c8c1d8669c8d374081708f30ff450": [
+                {"gender": "Male", "recommended": 11.84},
+                {"gender": "Female", "recommended": 8.64}
+            ]
+        }
+    }
+
+    // <Backlogging>
+
+    //Update method for the interval (time since last)
+    function updateInterval(){
+        // Sort the data (copy rather than sort-in-place)
+        var sortData = data.concat();
+        sortData.sort(function(a,b)
+          {return a.timestamp - b.timestamp});
+
+        var intervalDiv = document.getElementById("interval");
+        if(sortData.length > 0){
+          var interval = Date.now()-sortData[sortData.length - 1].timestamp;
+          var intervalS = Math.floor(interval/1000%60);
+          var intervalM = Math.floor(interval/(60*1000));
+          var intervalH = Math.floor(interval/(60*60*1000));
+          var intervalD = Math.floor(interval/(24*60*60*1000));
+          if(intervalD >= 3)
+            intervalDiv.innerHTML = "Last Entry " + intervalD + " Days Ago";
+          else if(intervalH >= 3)
+            intervalDiv.innerHTML = "Last Entry " + intervalH + " Hours Ago";
+          else if(intervalM >= 1)
+            intervalDiv.innerHTML = "Last Entry " + intervalM + " Mins Ago";
+          else intervalDiv.innerHTML = "Last Entry <1 Min Ago";
+        }
+        else{
+          intervalDiv.innerHTML = "No Data";
+        }
+    }
+
+    //Date picker buttons helper method
+    function updatePickerButtons(selectedDates, dateStr, instance){
+      let isBackfilling = (selectedDates.length > 0);
+      document.getElementById('toggleButton').style.visibility = 
+        (isBackfilling ? "hidden" : "visible");
+      document.getElementById('nowButton').style.visibility = 
+        (isBackfilling ? "visible" : "hidden");
+    }
+    // </Backlogging>
+
+
+    function addHistoricEvent(person, drink, when) {
+        var event = createEvent(person, drink);
+        event.date = when.toString();
+        event.timestamp = when;
+        event.person = person;
+        event.drink = drink;
+        data.push(event);
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+        updateInterval();
+    }
+
+    function addEvent(drink) {
+        let overrideDate = flatPicker.selectedDates[0];
+        console.log(drink);
+        console.log(overrideDate);
+        // person is who is tracking.
+        // category is tea, water, etc.
+        var person = $('#person label.active input').val()
+        console.log(person);
+        var event = createEvent(person, drink);
+        if(overrideDate){
+          event.date = overrideDate.toString();
+          event.timestamp = overrideDate.getTime();
+        }
+        data.push(event);
+        dataLastSevenDays.push(event)
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+        updateInterval();
+    }
+
+      //Clears all data
+      function clearData() {
+        data = [];
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+        updateInterval();
+      }
+
+      //Removes the last added event from the array. You can't undo clear at the moment.
+      function undo() {
+        data.pop();
+        dataLastSevenDays.pop(event);
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+        updateInterval();
+      }
+
+      // Hack to remove specific element from the array.
+      function clearSpecific() {
+          var index = 6; // clear element at index 6
+          data.splice(index, 1);
+          console.log("Removed element at index: " + index);
+          console.log(data);
+          setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+          updateView();
+          updateInterval();
+      }
+
+      function createDayDomain() {
+        var weekDays = [];
+        var today = new Date();
+        for (i = 0; i < 7; i++) {
+          var date = new Date();
+          date.setDate(date.getDate()-i);
+          weekDays.push(date.getWeekDay());
+        }
+        return weekDays.reverse();
+      }
+
+      /* HACK
+      function filterDataLastSevenDays() {
+        // only show last day or today if nothing done yet
+        var lastDay = new Date();
+        if (data.length > 0) {
+          last_entry = data.slice(-1)[0];
+          lastDay = new Date(Date.parse(last_entry.date));
+        }
+
+        console.log("Last day");
+        console.log(lastDay);
+
+        data.forEach(function(entry) {
+          var date = new Date(Date.parse(entry.date));
+          if(date.getMonth() == lastDay.getMonth() && date.getDate() ==
+              lastDay.getDate() && date.getFullYear() == lastDay.getFullYear()) {
+            dataLastSevenDays.push(entry);
+          }
+        });
+
+        console.log(dataLastSevenDays);
+      }*/
+
+      function filterDataLastSevenDaysOriginal() {
+        var today = new Date();
+        today.setHours(24,0,0,0);
+        var sevenDaysAgo = new Date().setDate(today.getDate() - 7);
+        sevenDaysAgo = new Date(sevenDaysAgo)
+        sevenDaysAgo.setHours(0,0,0,0);
+
+        data.forEach(function(entry) {
+          var date = new Date(Date.parse(entry.date));
+          if(date >= sevenDaysAgo && date <= today) {
+            dataLastSevenDays.push(entry);
+          }
+        });
+      }
+
+      //Updates the view of the vega lite visualizaiton
+      function updateView() {
+        let changeset = vega.changeset().remove(() => true).insert(dataLastSevenDays);
+        view.change('dataset', changeset).run();
+        updateAnswerCount();
+        
+      }
+
+      function updateAnswerCount(){
+        /*document.getElementById("yesCount").innerHTML = getAnswerCountToday("Yes");
+        document.getElementById("noCount").innerHTML = getAnswerCountToday("No");
+
+        document.getElementById("yesCountYesterday").innerHTML = getAnswerCountYesterday("Yes");
+        document.getElementById("noCountYesterday").innerHTML = getAnswerCountYesterday("No");
+        */
+      }
+
+      function getAnswerCountToday(answer){
+        return dataLastSevenDays.filter(entry => entry.answer == answer).length;
+      }
+
+      function getAnswerCountYesterday(answer){
+        return dataYesterday.filter(entry => entry.answer == answer).length;
+      }
+
+
+      //Toggle between fullscreen and normal browser view
+      function toggleFullScreen() {
+        if (document.fullscreenElement) { 
+          document.exitFullscreen() 
+        } else { 
+          document.documentElement.requestFullscreen() 
+        }     
+      }
+
+      //Get a JSON object from the local storage with as specified key
+      function getItemFromLocalStorage(key) {
+        if (typeof(Storage) !== "undefined") {
+          return JSON.parse(localStorage.getItem(key));
+        } else {
+          Console.log("Local Storage not supported");
+        }
+      }
+
+      //Save a JSON object to the local storage with as specified key
+      function setItemToLocalStorage(key, value) {
+        if (typeof(Storage) !== "undefined") {
+          localStorage.setItem(key, JSON.stringify(value));
+        } else {
+          Console.log("Local Storage not supported");
+        }
+      }
+
+      //Gets the data from the local storage. If there is no data in the local storage, creates an empty array
+      function initializeData() {
+        var localStorageData = getItemFromLocalStorage(LOCAL_STORAGE_KEY)
+        if (localStorageData) {
+          data = localStorageData;
+        }
+        else {
+          data = [];
+        }
+      }
+
+      function filterDataToday() {
+        var today = new Date();
+        data.forEach(function(entry) {
+          date = new Date(Date.parse(entry.date));
+          if(date.getMonth() == today.getMonth() && date.getDate() == today.getDate() && date.getFullYear() == today.getFullYear()) {
+            dataLastSevenDays.push(entry);
+          }
+        });
+      }
+
+      function filterDataYesterday() {
+       var yesterday = new Date(new Date().setDate(new Date().getDate()-1));
+        data.forEach(function(entry) {
+          date = new Date(Date.parse(entry.date));
+          if(date.getMonth() == yesterday.getMonth() && date.getDate() == yesterday.getDate() && date.getFullYear() == yesterday.getFullYear()) {
+            dataYesterday.push(entry);
+          }
+        });
+      }
+
+      //Creates a generic event with date, timestamp,cycle, version, author and name
+      function createGenericEvent() {
+        return { 
+          id:         uuidv4(),                  //Unique ID of the event object
+          date:       (new Date()).toString(),   //Date as String
+          timestamp:  Date.now(),                //Timestamp in milliseconds - for UNIX time stamp convert to seconds
+          cycle:      CYCLE,                      //Starting from 1 for the first cycle
+          version:    VERSION,                   //Starting from 1 for the current visualization 
+          author:     AUTHOR,                    //Author initials (e.g. nb for Nathalie Bressa)
+          name:       NAME,                      //Name of the visualiztion in the format cycle_version_author_shortname
+        };
+      }
+
+      //Add any additional attributes to the event that are specific to the visualization. In this case, add a person and drink to the event.
+      function createEvent(person, drink) {
+        var event = createGenericEvent();
+        event.person = person;
+        event.drink = drink;
+        if(dataLastSevenDays.length == 0) {
+         event.row = 0;
+       } else {
+        event.row = Math.floor(dataLastSevenDays.length/10);
+      }
+        return event;
+      }
+
+      //Saves a json file of the current data with the specified name of the visualization
+      function saveJSONFile() {
+        downloadFile(data, NAME + '.json', 'text/plain');
+      }
+
+      //Downloads a file with the specified content, filename and content type
+      function downloadFile(content, fileName, contentType) {
+        var a = document.createElement("a");
+        var file = new Blob([JSON.stringify(content)], {type: contentType});
+        a.href = URL.createObjectURL(file);
+        document.body.appendChild(a);
+        a.download = fileName;
+        a.click();
+      }
+
+      //Generates a UUID for an event object
+      function uuidv4() {
+        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+          (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+          );
+      }
+
+      function refreshAt(hours, minutes, seconds) {
+        var now = new Date();
+        var then = new Date();
+
+        if(now.getHours() > hours ||
+         (now.getHours() == hours && now.getMinutes() > minutes) ||
+         now.getHours() == hours && now.getMinutes() == minutes && now.getSeconds() >= seconds) {
+          then.setDate(now.getDate() + 1);
+      }
+      then.setHours(hours);
+      then.setMinutes(minutes);
+      then.setSeconds(seconds);
+      var timeout = (then.getTime() - now.getTime());
+      //setTimeout(function() { window.location.reload(true); }, timeout);
+      setTimeout(function() { reloadView()}, timeout);
+    }
+
+    function reloadView() {
+      data = [];
+      dataLastSevenDays = [];
+      dataYesterday = [];
+      initializeData();
+      //filterDataLastSevenDays();
+      filterDataToday();
+      updateAnswerCount();
+      let changeset = vega.changeset().remove(() => true).insert(dataLastSevenDays);
+      view.change('dataset', changeset).run()
+      let changeset2 = vega.changeset().remove(() => true).insert(dataYesterday);
+      viewYesterday.change('yesterdaydataset', changeset2).run()
+    }
+
+      //Embed visualization into container with id 'vis', initialize the data and update the view
+      vegaEmbed('#vis', vlSpec).then(function(result) {
+        window.view = result.view;
+        initializeData();
+        //filterDataLastSevenDays();
+        filterDataToday();
+        console.log(dataLastSevenDays);
+        updateAnswerCount();
+        let changeset = vega.changeset().remove(() => true).insert(dataLastSevenDays);
+        result.view.change('dataset', changeset).run()
+      });
+
+
+    //Set up the datepicker
+    const flatPicker = flatpickr("#datePicker", {
+      wrap:true,
+      enableTime: true,
+      dateFormat: "Y-m-d H:i",
+      time_24hr:true,
+      maxDate:new Date(),
+      onChange: updatePickerButtons,
+      onReady: updatePickerButtons
+      });
+
+    //Initialize the data and update the view
+    initializeData();
+    updateInterval();
+    
+    setInterval(function(){
+      reloadView();
+      updateInterval();
+    },3.6e+6);
+
+    </script>
+    </html>

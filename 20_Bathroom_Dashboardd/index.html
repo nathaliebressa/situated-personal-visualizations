@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+  <meta charset="utf-8" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;700&display=swap" rel="stylesheet">
+  <style type="text/css">
+    
+    * { padding: 0; margin: 0; }
+    html, body, #fullheight {
+        min-height: 100% !important;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .panel{
+      display:inline-block;
+      width:49%;
+      height:50%;
+      overflow:hidden;
+    }
+    
+    .customLabel{
+      position:absolute;
+      font-size: 3.5vw;
+      background: transparent;
+      border: none;
+      font-family: "Roboto";
+      z-index: 1;
+      padding-top: .2em;
+      padding-left: .5em;
+    }
+
+    iframe{
+        width:100%;
+        height:100%;
+        border: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="panel">
+    <input id="L1" class="customLabel" 
+           placeholder="What are you tracking?"
+           oninput="saveCustomLabels()">
+    <iframe src="../11_2_WW_CalendarBinaryKobo/index.html?unique=L1"></iframe>
+  </div>
+
+  <div class="panel">
+    <input id="W1" class="customLabel" 
+           placeholder="What are you tracking?"
+           oninput="saveCustomLabels()">
+    <iframe src="../11_2_WW_CalendarKobo/index.html?unique=W1"></iframe>
+  </div>
+
+  <div class="panel">
+    <input id="L2" class="customLabel" 
+           placeholder="What are you tracking?"
+           oninput="saveCustomLabels()">
+    <iframe src="../11_2_WW_CalendarBinaryKobo/index.html?unique=L2"></iframe>
+  </div>
+
+  <div class="panel">
+    <input id="W2" class="customLabel" 
+           placeholder="What are you tracking?"
+           oninput="saveCustomLabels()">
+    <iframe src="../11_2_WW_CalendarBinaryKobo/index.html?unique=W2"></iframe>
+  </div>
+
+
+</body>
+<script type="text/javascript">
+    //Attributes of the visualization. Need to be updated/newly specified for each cycle.  
+    var CYCLE = 11;
+    var VERSION = 1;
+    var AUTHOR = "WW";
+    var SHORT_NAME = "Dash4X";
+    var NAME = CYCLE + "_" + VERSION + "_" + AUTHOR + "_" + SHORT_NAME;
+
+    //Key to access the data in the local storage
+    var LOCAL_STORAGE_KEY = NAME; 
+
+    //Get a JSON object from the local storage with as specified key
+    function getItemFromLocalStorage(key) {
+      if (typeof(Storage) !== "undefined") {
+        return JSON.parse(localStorage.getItem(key));
+      } else {
+        Console.log("Local Storage not supported");
+      }
+    }
+
+    //Save a JSON object to the local storage with as specified key
+    function setItemToLocalStorage(key, value) {
+      if (typeof(Storage) !== "undefined") {
+        localStorage.setItem(key, JSON.stringify(value));
+      } else {
+        Console.log("Local Storage not supported");
+      }
+    }
+
+    // Load any custom labels from local storage and set those elemenst.
+    function loadCustomLabels(){
+      var loadLabels = getItemFromLocalStorage(LOCAL_STORAGE_KEY+"_LABELS");
+      for(var i=0; i < loadLabels.length; i++){
+        var label = loadLabels[i];
+        document.getElementById(label.id).value = label.value;
+      }
+    }
+
+    // Save all custom labels (inputs or textareas with class customLabel)
+    //  to local storage
+    function saveCustomLabels(){
+      var labelElements = document.getElementsByClassName("customLabel");
+      var saveLabels = [];
+      for(var i=0; i < labelElements.length; i++){
+        var element = labelElements[i];
+        saveLabels.push({"id":element.id,"value":element.value});
+      }
+      setItemToLocalStorage(LOCAL_STORAGE_KEY+"_LABELS",saveLabels);
+    }
+
+    //Load Custom Labels after page load
+    loadCustomLabels();
+</script>
+</html>

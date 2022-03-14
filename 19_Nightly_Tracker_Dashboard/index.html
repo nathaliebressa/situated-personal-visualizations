@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+  <meta charset="utf-8" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;700&display=swap" rel="stylesheet">
+  <style type="text/css">
+    
+    body{
+        background-color: black;
+        color: white;
+    }
+    
+    .customLabel{
+        font-size: 20pt;
+        background: transparent;
+        border: none;
+        color: white;
+        font-family: "Roboto";
+        z-index: 1;
+        margin-top:.5em;
+    }
+
+    iframe{
+        width:100%;
+        height:500px;
+        border: none;
+    }
+  </style>
+</head>
+<body>
+
+    <input id="label1" class="customLabel" 
+           placeholder="What are you tracking?"
+           oninput="saveCustomLabels()">
+    <iframe src="../10_1_WW_StreakTime/index.html"></iframe>
+
+    <input id="label2" class="customLabel" 
+           placeholder="What are you tracking?"
+           oninput="saveCustomLabels()">
+    <iframe src="../6_1_WW_Daily/index.html"></iframe>
+
+</body>
+<script type="text/javascript">
+    //Attributes of the visualization. Need to be updated/newly specified for each cycle.  
+    let CYCLE = 10;
+    let VERSION = 1;
+    let AUTHOR = "WW"
+    let SHORT_NAME = "Dash"
+    let NAME = CYCLE + "_" + VERSION + "_" + AUTHOR + "_" + SHORT_NAME;
+
+    //Key to access the data in the local storage
+    let LOCAL_STORAGE_KEY = NAME; 
+
+    //Get a JSON object from the local storage with as specified key
+    function getItemFromLocalStorage(key) {
+      if (typeof(Storage) !== "undefined") {
+        return JSON.parse(localStorage.getItem(key));
+      } else {
+        Console.log("Local Storage not supported");
+      }
+    }
+
+    //Save a JSON object to the local storage with as specified key
+    function setItemToLocalStorage(key, value) {
+      if (typeof(Storage) !== "undefined") {
+        localStorage.setItem(key, JSON.stringify(value));
+      } else {
+        Console.log("Local Storage not supported");
+      }
+    }
+
+    // Load any custom labels from local storage and set those elemenst.
+    function loadCustomLabels(){
+      let loadLabels = getItemFromLocalStorage(LOCAL_STORAGE_KEY+"_LABELS");
+      for(let label of loadLabels)
+        document.getElementById(label.id).value = label.value;
+    }
+
+    // Save all custom labels (inputs or textareas with class customLabel)
+    //  to local storage
+    function saveCustomLabels(){
+      let labelElements = document.getElementsByClassName("customLabel");
+      let saveLabels = [];
+      for(let element of labelElements)
+        saveLabels.push({"id":element.id,"value":element.value});
+      setItemToLocalStorage(LOCAL_STORAGE_KEY+"_LABELS",saveLabels);
+    }
+
+    //Load Custom Labels after page load
+    loadCustomLabels();
+</script>
+</html>

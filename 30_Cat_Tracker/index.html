@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Cat</title>
+	<meta charset="utf-8" />
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+
+
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+	<style>
+		#vis {
+			width: 80%!important;
+		}
+
+		.btn {
+			text-align: center;
+			
+			color: black; 
+			background-color: transparent; 
+			border-color: black; 
+			width: 140px;
+		}
+
+		.btn-emoji {
+			font-size: 20pt;
+		}
+
+		.overlay {
+			position: fixed; 
+			display: none; 
+			width: 65px;
+			height: 50px;
+			margin: 10px;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			display: block;
+		}
+
+		.overlay-buttons {
+			position: fixed; 
+			display: none; 
+			top: 98%;
+			left: 50%;
+			margin-top: -70px;
+			margin-left: -140px;
+			right: 0;
+			bottom: 0;
+			display: block;
+		}
+
+		html, body {
+			width:  100%;
+			height: 100%;
+			margin: 0;
+		}
+
+		.btn-warning:not(:disabled):not(.disabled).active, .btn-warning:not(:disabled):not(.disabled):active, .show>.btn-warning.dropdown-toggle {
+			color: white;
+			background-color: #ffaa54;
+			border-color: #ffaa54;
+		}
+		.btn-primary:not(:disabled):not(.disabled).active, .btn-primary:not(:disabled):not(.disabled):active, .show>.btn-primary.dropdown-toggle {
+			color: #fff;
+			background-color: #5496ff;
+			border-color: #5496ff;
+		}
+
+
+	</style>
+
+</head>
+<body>
+
+
+	<canvas id="canvas"></canvas>
+
+	<div class="btn-group-vertical overlay">
+		<div class="btn-group">
+			<button type="button" class=" btn dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"></button>
+			<div class="dropdown-menu">
+				<a class="dropdown-item" href="#" onclick="toggleFullScreen()">Fullscreen</a>
+				<a class="dropdown-item" href="#" onclick="saveJSONFile()">Save JSON</a>
+				<!-- <a class="dropdown-item" href="#" onclick="clearData()">Clear Data (not reversible)</a> -->
+			</div>
+
+		</div>
+		<button type="button" class="btn" onclick="undo()">Undo</button>
+
+	</div>
+
+	<div id="mode" class="overlay-buttons btn-group btn-group-toggle" data-toggle="buttons">
+		<label class="btn btn-emoji btn-warning btn-xl btn-number">
+			<input type="radio" name="options" id="option2" value="awake"> awake
+		</label>
+		<label class="btn btn-emoji active btn-primary btn-xl btn-person">
+			<input type="radio" name="options" id="option1" value="asleep"> asleep
+		</label>
+	</div>
+
+</div>
+</body>
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+
+<script>
+
+
+      //Attributes of the visualization. Need to be updated/newly specified for each cycle.  
+      let CYCLE = 11;
+      let VERSION = 1;
+      let AUTHOR = "F"
+      let SHORT_NAME = "Cat"
+      let NAME = CYCLE + "_" + VERSION + "_" + AUTHOR + "_" + SHORT_NAME;
+
+      //Key to access the data in the local storage
+      let LOCAL_STORAGE_KEY = NAME;
+
+      //The data that is displayed in the visualization
+      var data;
+
+      var dataCurrentWeek = [];
+
+      var canvas = document.getElementById('canvas');
+      //var canvas = new fabric.Canvas('canvas');
+      var context = canvas.getContext('2d');
+      var circlePaths = [];
+
+
+      function addEvent(x,y) {
+      	var mode = $('#mode label.active input').val()
+      	var event = createEvent(x,y, mode, true);
+      	data.push(event);
+      	setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+      	updateView();
+      }
+
+      //Clears all data
+      function clearData() {
+      	data = [];
+      	setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+      	updateView();
+      }
+
+      //Removes the last added event from the array. You can't undo clear at the moment.
+      function undo() {
+      	data.pop();
+        circlePaths.pop();
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+      }
+
+      //Updates the view of the vega lite visualizaiton
+      function updateView() {
+      	context.canvas.width  = window.innerWidth;
+      	context.canvas.height = window.innerHeight;
+      	context.clearRect(0, 0, canvas.width, canvas.height);
+      	draw(); 
+      }
+
+
+      //Toggle between fullscreen and normal browser view
+      function toggleFullScreen() {
+      	if (document.fullscreenElement) { 
+      		document.exitFullscreen() 
+      	} else { 
+      		document.documentElement.requestFullscreen() 
+      	}     
+      }
+
+      //Get a JSON object from the local storage with as specified key
+      function getItemFromLocalStorage(key) {
+      	if (typeof(Storage) !== "undefined") {
+      		return JSON.parse(localStorage.getItem(key));
+      	} else {
+      		Console.log("Local Storage not supported");
+      	}
+      }
+
+      //Save a JSON object to the local storage with as specified key
+      function setItemToLocalStorage(key, value) {
+      	if (typeof(Storage) !== "undefined") {
+      		localStorage.setItem(key, JSON.stringify(value));
+      	} else {
+      		Console.log("Local Storage not supported");
+      	}
+      }
+
+      //Gets the data from the local storage. If there is no data in the local storage, creates an empty array
+      function intitalizeData() {
+      	var localStorageData = getItemFromLocalStorage(LOCAL_STORAGE_KEY)
+      	if (localStorageData) {
+      		data = localStorageData;
+      	}
+      	else {
+      		data = [];
+      	}
+      }
+
+      //Creates a generic event with date, timestamp,cycle, version, author and name
+      function createGenericEvent() {
+      	return { 
+          id:         uuidv4(),                  //Unique ID of the event object
+          date:       (new Date()).toString(),   //Date as String
+          timestamp:  Date.now(),                //Timestamp in milliseconds - for UNIX time stamp convert to seconds
+          cycle:      CYCLE,                      //Starting from 1 for the first cycle
+          version:    VERSION,                   //Starting from 1 for the current visualization 
+          author:     AUTHOR,                    //Author initials (e.g. nb for Nathalie Bressa)
+          name:       NAME,                      //Name of the visualiztion in the format cycle_version_author_shortname
+        };
+      }
+
+      //Add any additional attributes to the event that are specific to the visualization. In this case, add a type to the event.
+      function createEvent(x,y, mode, isParent) {
+      	var event = createGenericEvent();
+      	event.x = x;
+      	event.y = y;
+      	event.mode = mode;
+        event.isParent = isParent;
+        return event;
+      }
+
+      function addEventChild(id) {
+        var found = data.find(element => element.id == id);
+        if(found.mode == $('#mode label.active input').val()) {
+          var event = createEvent(found.x, found.y, found.mode, false);
+          event.parent = id;
+          data.push(event);
+          setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+          }
+        }
+        
+
+      //Saves a json file of the current data with the specified name of the visualization
+      function saveJSONFile() {
+      	downloadFile(data, NAME + '.json', 'text/plain');
+      }
+
+      //Downloads a file with the specified content, filename and content type
+      function downloadFile(content, fileName, contentType) {
+      	var a = document.createElement("a");
+      	var file = new Blob([JSON.stringify(content)], {type: contentType});
+      	a.href = URL.createObjectURL(file);
+      	document.body.appendChild(a);
+      	a.download = fileName;
+      	a.click();
+        document.body.removeChild(a)
+
+        //var blob = new Blob([JSON.stringify(content)], {type: "application/json"});
+        //window.saveAs(blob, NAME + ".json");
+      }
+
+      //Generates a UUID for an event object
+      function uuidv4() {
+      	return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+      		(c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+      		);
+      }
+
+
+      function reloadView() {
+      	intitalizeData();
+      	updateView();
+      }
+
+      function mousePosition(event) {
+        var clickInCircle = false;
+
+        for(var i = 0; i < circlePaths.length; i++) {
+          if (context.isPointInPath(circlePaths[i], event.clientX, event.clientY)) {
+            clickInCircle = true;
+            addEventChild(circlePaths[i].id);
+            break;
+          }
+        }
+        if(!clickInCircle) {
+          addEvent(event.clientX,event.clientY);
+        } 
+        updateView();
+      }
+
+
+      function draw() {
+
+      	var img = new Image();
+      	img.src = "./floorplan.svg"
+      	img.onload = () => {
+          //context.drawImage(img, 0, 0)
+          scaleToFill(img);
+          data.forEach(function(entry) {
+            if(entry.isParent) {
+              const timesTapped = data.filter(e => e.parent == entry.id).length +1;
+
+              const circle = new Path2D();
+              circle.id = entry.id;
+
+              circle.arc(entry.x, entry.y, 7+timesTapped, 0, 2 * Math.PI);
+              context.globalAlpha = 0.6;
+
+              if(entry.mode == "asleep") {
+                context.fillStyle = '#5496ff';
+              } else if (entry.mode == "awake") {
+                context.fillStyle = '#ffaa54';
+              }
+              context.fill(circle);
+
+              if (circlePaths.filter(e => e.id === entry.id).length == 0) {
+                circlePaths.push(circle);
+              }
+            }
+
+          });   
+        }
+      }
+
+      function scaleToFill(img){
+    // get the scale
+    var scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+    // get the top left position of the image
+    var x = (canvas.width / 2) - (img.width / 2) * scale;
+    var y = (canvas.height / 2) - (img.height / 2) * scale;
+    context.drawImage(img, x, y, img.width * scale, img.height * scale);
+  }
+
+  function mapValues(input) {
+   return 0 + ((1 - 0) / (0 - 72)) * (input - 72);
+ }
+
+
+ intitalizeData();
+ updateView();
+ canvas.addEventListener("click", mousePosition);
+
+
+ setInterval(function(){
+   updateView();
+ },3.6e+6);
+
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+</html>

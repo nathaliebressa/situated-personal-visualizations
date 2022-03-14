@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Clothes</title>
+  <meta charset="utf-8" />
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <style>
+    #vis {
+      width: 80%!important;
+      padding-bottom:20px;
+      margin-top:0px;
+    }
+
+
+    .btn {
+      text-align: center;
+      color: white; 
+      background-color: transparent; 
+      border-color: white; 
+      border-width: 1px;
+    }
+
+
+
+    .btn-xl {
+      padding: 2px 30px;
+      font-size: 35px;
+      border-radius: 10px;
+      width: 100px;
+      height: 50px;
+    }
+    .btn-text {
+      padding: 2px 30px;
+      font-size: 33px;
+      border-radius: 10px;
+      width: 170px;
+      height: 55px;
+    }
+
+    .btn-pink {
+      background-color: #ffa1cd;
+    }
+    .btn-white {
+      background-color: #ffffff;
+    }
+    .btn-black {
+      background-color: #1f1f1f;
+    }
+    .btn-yellow {
+      background-color: #ffd426;
+    }
+    .btn-red {
+      background-color: #ff3b3b;
+    }
+    .btn-grey {
+      background-color: #c2c2c2;
+    }
+    .btn-lightblue {
+      background-color: #addaff;
+    }
+    .btn-blue {
+      background-color: #364eba;
+    }
+
+    body {
+      background: #ffd426;
+    }
+  </style>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/vega@5.7.2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@4.0.0-beta.10"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@5.1.3"></script>
+
+  <style media="screen">
+    /* Add space between Vega-Embed links  */
+    .vega-actions a {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+
+
+  <div id="content" class="container-fluid justify-content-center m-4">
+
+    <div class="btn-group">
+      <button type="button" class="btn btn-outline-dark dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"></button>
+      <div class="dropdown-menu">
+        <a class="dropdown-item" href="#" onclick="toggleFullScreen()">Fullscreen</a>
+        <a class="dropdown-item" href="#" onclick="saveJSONFile()">Save JSON</a>
+        <!-- <a class="dropdown-item" href="#" onclick="clearData()">Clear Data (not reversible)</a> -->
+      </div>
+    </div>
+
+    <!-- Container for the visualization -->
+    <div class="row justify-content-center">
+      <div id="vis"></div>
+    </div>
+
+    <div class="row justify-content-center my-1">
+      <div id="color" class="btn-group" role="group">
+
+        <button  class="btn btn-black btn-circle btn-xl" id="#1f1f1f" onclick="addEvent(this.id)"> </button>
+
+        <button class="btn btn-grey btn-circle btn-xl"  id="#c2c2c2" onclick="addEvent(this.id)"> </button>
+
+        <button class="btn btn-white btn-circle btn-xl"  id="#ffffff" onclick="addEvent(this.id)"> </button>
+
+        <button  class="btn btn-lightblue btn-circle btn-xl" id="#addaff" onclick="addEvent(this.id)"> </button>
+
+        <button  class="btn btn-blue btn-circle btn-xl" id="#364eba" onclick="addEvent(this.id)"> </button>
+
+        <button  class="btn btn-yellow btn-circle btn-xl" id="#ffd426" onclick="addEvent(this.id)"> </button>
+
+        <button class="btn btn-red btn-circle btn-xl"  id="#ff3b3b" onclick="addEvent(this.id)"> </button>
+
+        <button class="btn btn-pink btn-circle btn-xl" id="#ffa1cd" onclick="addEvent(this.id)"> </button>
+      </div>
+    </div>
+    <div class="row justify-content-center mt-4">
+      <div class="m-auto">
+        <button type="button" class="btn btn-dark btn-text" onclick="undo()">Undo</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+
+<script>
+
+      //*********************************************** Global variables *********************************************** //
+
+      //Attributes of the visualization. Need to be updated/newly specified for each cycle.  
+      let CYCLE = 7;
+      let VERSION = 1;
+      let AUTHOR = "nb"
+      let SHORT_NAME = "clothes"
+      let NAME = CYCLE + "_" + VERSION + "_" + AUTHOR + "_" + SHORT_NAME;
+
+
+      //Key to access the data in the local storage
+      let LOCAL_STORAGE_KEY = NAME;
+
+      var data;
+
+
+      //*********************************************** Vega Lite specification *********************************************** //
+      // Assign the specification to a local variable vlSpec.
+      var vlSpec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
+        "data": {
+          "values": data,
+          "name": "dataset"
+        },
+        "background": "#ffd426",
+        "view": {"strokeWidth": 3, "stroke": "white"},
+        "width": "container",
+        "height": 290,
+        "title": "",
+        "config": {
+          "view": {
+            "strokeWidth": 0
+          }, 
+          "axis": {
+            "domain": false, 
+            "labelFontSize": 40,
+          },
+        },
+        "mark": "rect",
+        "encoding": {
+          "x": {
+            "field": "date",
+            "timeUnit": "monthdate",
+            "type": "ordinal",
+            "axis": null
+          },
+          "y":{
+            "field": "name", 
+            "type":"nominal", 
+            "axis": null,
+          },
+          "color": {
+            "field": "color",
+            "type": "nominal",
+            "scale": null
+          }
+        }
+      };
+
+      //*********************************************** UI calls *********************************************** //
+
+      function addEvent(id) {
+        var color = id;
+        var event = createEvent(color);
+        data.push(event);
+        console.log(data);
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+      }
+
+      //Clears all data
+      function clearData() {
+        data = [];
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+      }
+
+      //Removes the last added event from the array. You can't undo clear at the moment.
+      function undo() {
+        data.pop();
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+      }
+
+      //Updates the view of the vega lite visualizaiton
+      function updateView() {
+        let changeset = vega.changeset().remove(() => true).insert(data);
+        view.change('dataset', changeset).run()
+      }
+
+
+      //Toggle between fullscreen and normal browser view
+      function toggleFullScreen() {
+        if (document.fullscreenElement) { 
+          document.exitFullscreen() 
+        } else { 
+          document.documentElement.requestFullscreen() 
+        }     
+      }
+
+      //*********************************************** Local Storage functions *********************************************** //
+
+      //Get a JSON object from the local storage with as specified key
+      function getItemFromLocalStorage(key) {
+        if (typeof(Storage) !== "undefined") {
+          return JSON.parse(localStorage.getItem(key));
+        } else {
+          Console.log("Local Storage not supported");
+        }
+      }
+
+      //Save a JSON object to the local storage with as specified key
+      function setItemToLocalStorage(key, value) {
+        if (typeof(Storage) !== "undefined") {
+          localStorage.setItem(key, JSON.stringify(value));
+        } else {
+          Console.log("Local Storage not supported");
+        }
+      }
+
+
+      //*********************************************** Data Initialization  *********************************************** //
+
+
+      //Gets the data from the local storage. If there is no data in the local storage, creates an empty array
+      function intitalizeData() {
+        var localStorageData = getItemFromLocalStorage(LOCAL_STORAGE_KEY)
+        if (localStorageData) {
+          data = localStorageData;
+        }
+        else {
+          data = [];
+        }
+      }
+
+      function filterForCurrentMonth() {
+        var currentMonth = new Date().getMonth();
+        data.forEach(function(entry) {
+          if(new Date(Date.parse(entry.date)).getMonth() == currentMonth) {
+            dataCurrentMonth.push(entry);
+          }
+        });
+      }
+
+
+      //*********************************************** Event Object functions *********************************************** //
+
+      //Creates a generic event with date, timestamp,cycle, version, author and name
+      function createGenericEvent() {
+        return { 
+          id:         uuidv4(),                  //Unique ID of the event object
+          date:       (new Date()).toString(),   //Date as String
+          timestamp:  Date.now(),                //Timestamp in milliseconds - for UNIX time stamp convert to seconds
+          cycle:      CYCLE,                      //Starting from 1 for the first cycle
+          version:    VERSION,                   //Starting from 1 for the current visualization 
+          author:     AUTHOR,                    //Author initials (e.g. nb for Nathalie Bressa)
+          name:       NAME,                      //Name of the visualiztion in the format cycle_version_author_shortname
+        };
+      }
+
+      //Add any additional attributes to the event that are specific to the visualization. In this case, add a type to the event.
+      function createEvent(color) {
+        var event = createGenericEvent();
+        event.color = color;
+        return event;
+      }
+
+      //Saves a json file of the current data with the specified name of the visualization
+      function saveJSONFile() {
+        downloadFile(data, NAME + '.json', 'text/plain');
+      }
+
+      //Downloads a file with the specified content, filename and content type
+      function downloadFile(content, fileName, contentType) {
+        var a = document.createElement("a");
+        var file = new Blob([JSON.stringify(content)], {type: contentType});
+        a.href = URL.createObjectURL(file);
+        document.body.appendChild(a);
+        a.download = fileName;
+        a.click();
+      }
+
+      //Generates a UUID for an event object
+      function uuidv4() {
+        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+          (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+          );
+      }
+
+
+      //*********************************************** Date helper functions *********************************************** //
+
+      //For a date, get the number of a week in a month, starting from 1
+      Date.prototype.getWeekOfMonth = function() {
+        var firstWeekday = new Date(this.getFullYear(), this.getMonth(), 1).getDay() - 1;
+        if (firstWeekday < 0) firstWeekday = 6;
+        var offsetDate = this.getDate() + firstWeekday - 1;
+        return Math.floor(offsetDate / 7)+1;
+      }
+
+      //Gets the number of weeks a month has for a week start date
+      function getWeekCount(year, month_number, startDayOfWeek) {
+        // month_number is in the range 0..11
+        // Get the first day of week week day (0: Sunday, 1: Monday, ...)
+        var firstDayOfWeek = startDayOfWeek || 0;
+        var firstOfMonth = new Date(year, month_number, 1);
+        var lastOfMonth = new Date(year, month_number, 0);
+        var numberOfDaysInMonth = lastOfMonth.getDate();
+        var firstWeekDay = (firstOfMonth.getDay() - firstDayOfWeek + 7) % 7;
+        var used = firstWeekDay + numberOfDaysInMonth;
+        return Math.ceil( used / 7);
+      }
+
+      Date.prototype.getWeekNumber = function(){
+        var d = new Date(Date.UTC(this.getFullYear(), this.getMonth(), this.getDate()));
+        var dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+        return Math.ceil((((d - yearStart) / 86400000) + 1)/7)
+      };   
+
+        //Creates an array with each week number in the month. Used for the Vega Lite domain. 
+        function createWeekArray() {
+          var numberOfWeeksInMonth= getWeekCount(new Date().getFullYear(), new Date().getMonth(), 1);
+          var weekArray = [];
+          for(i = 0; i < numberOfWeeksInMonth; i++) {
+            weekArray.push(i+1);
+          }
+          return weekArray;
+        }  
+
+      //*********************************************** Embedd visualization *********************************************** //
+
+      //Embedd visualziation into container with id 'vis', intitialize the data and update the view
+      vegaEmbed('#vis', vlSpec).then(function(result) {
+        window.view = result.view;
+        intitalizeData();
+        let changeset = vega.changeset().remove(() => true).insert(data);
+        result.view.change('dataset', changeset).run()
+      });
+
+
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+    </html>

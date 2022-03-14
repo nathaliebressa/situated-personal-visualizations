@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Shock</title>
+  <meta charset="utf-8" />
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <style>
+    #vis {
+      width: 80%!important;
+    }
+    .btn-xl {
+      padding: 2px 30px;
+      font-size: 33px;
+      border-radius: 10px;
+      width: 150px;
+
+    }
+
+    .btn-yes { 
+      color: orange; 
+      background-color: #FFFFFF; 
+      border-color: orange; 
+    } 
+
+    .btn-yes:hover,.btn-yes:focus,.btn-yes:active,.btn-yes.active{ 
+      color: #FFFFFF; 
+      background-color: orange; 
+      border-color: orange; 
+    } 
+
+    .btn-no { 
+      color: #6495ED; 
+      background-color: #FFFFFF; 
+      border-color: #6495ED; 
+    } 
+
+    .btn-undo{
+      width: 100px;
+    }
+
+    .btn-no:hover,.btn-no:focus,.btn-no:active,.btn-no.active{ 
+      color: #FFFFFF; 
+      background-color: #6495ED; 
+      border-color: #6495ED; 
+    } 
+
+    h1 {
+      font-size: 2.9rem;
+    }
+  </style>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/vega@5.7.2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@4.0.0-beta.10"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@5.1.3"></script>
+
+  <style media="screen">
+    /* Add space between Vega-Embed links  */
+    .vega-actions a {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+
+
+  <div id="content" class="container-fluid justify-content-center m-4">
+
+    <div class="row">
+
+      <div class="btn-group-vertical">
+        <div class="btn-group">
+          <button type="button" class="btn btn-outline-dark dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"></button>
+          <div class="dropdown-menu">
+            <a class="dropdown-item" href="#" onclick="toggleFullScreen()">Fullscreen</a>
+            <a class="dropdown-item" href="#" onclick="saveJSONFile()">Save JSON</a>
+            <!-- <a class="dropdown-item" href="#" onclick="clearData()">Clear Data (not reversible)</a> -->
+          </div>
+
+        </div>
+        <button type="button" class="btn btn-outline-dark btn-undo" onclick="undo()">Undo</button>
+
+      </div>
+
+      <div class=" col justify-content-center">
+        <h1 class="text-center bla">Did this door shock you?</h1>
+      </div>
+
+
+
+    </div>
+
+    <!-- Container for the visualization -->
+    <div class="row justify-content-center">
+      <div id="vis"></div>
+
+    </div>
+    <div class="row justify-content-center">
+      <div class="m-auto ">
+        <button type="button" class="btn btn-outline-primary btn-xl btn-yes" onclick="addEventYes()">Yes</button>
+        <button type="button" class="btn btn-outline-primary btn-xl btn-no" onclick="addEventNo()">No</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+
+<script>
+
+  Date.prototype.getWeekDay = function() {
+    var weekday = ["Sun", "Mon", "Tue", "Wed", "Thur", "Fri", "Sat"];
+    return weekday[this.getDay()];
+  }
+
+      //Attributes of the visualization. Need to be updated/newly specified for each cycle.  
+      let CYCLE = 2;
+      let VERSION = 1;
+      let AUTHOR = "nb"
+      let SHORT_NAME = "shock"
+      let NAME = CYCLE + "_" + VERSION + "_" + AUTHOR + "_" + SHORT_NAME;
+
+      //Key to access the data in the local storage
+      let LOCAL_STORAGE_KEY = NAME;
+
+      //The data that is displayed in the visualization
+      var data;
+
+
+      var dataLastSevenDays = [];
+
+      var lastSevenWeekdays = createDayDomain();
+
+      var day = 29;
+
+      var today = new Date();
+      // Assign the specification to a local variable vlSpec.
+      var vlSpec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
+        "data": {
+          "values": dataLastSevenDays,
+          "name": "dataset"
+        },
+        "width": "container",
+        "height": 300,
+        "title": "",
+        "config": {
+          "view": {
+            "strokeWidth": 0
+          }, 
+          "axis": {
+            "domain": false, 
+            "shortTimeLabels": true,
+            "labelFontSize": 30,
+            "labelFontWeight":"bold"
+          }, 
+          "style": {
+          },
+        },
+        "mark": {
+          "type": "bar",
+          "opacity": 1,
+          "legend": "null",
+          //"stroke": "black"
+        },
+        "encoding": {
+          "x": {
+            "field": "date",
+            "timeUnit": "day",
+            "type": "ordinal",
+            "title": "Day",
+            "scale": {"domain": lastSevenWeekdays},
+            "axis": {
+              "title": "",
+            }
+          },
+          "y": {
+            "aggregate": "count",
+            "type": "quantitative",
+            "axis": {
+              "tickCount": 5,
+              "title": ""
+            }
+          },
+          "color": {
+            "legend": null,
+            "field": "answer",
+            "type": "nominal",
+            "scale": {
+              "domain": ["Yes", "No"],
+              "range": ["orange", "cornflowerblue"]
+            }
+          },
+          //"color": {
+          //  "condition": {
+              //"test": "datum.author === 'nb'",
+          //    "test": "date(datetime(2019,10,datum.day))"+ " === date(datetime(2019,10,29))",
+              //"test": "date(datum.date) === date(now())",
+          //    "value": 20
+          //  }
+          //}
+
+        }
+      };
+
+      function addEventYes() {
+        var event = createEvent("Yes");
+        dataLastSevenDays.push(event);
+        data.push(event);
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+      }
+
+      function addEventNo() {
+        var event = createEvent("No");
+        dataLastSevenDays.push(event);
+        data.push(event);
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+      }
+
+      //Clears all data
+      function clearData() {
+        data = [];
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+      }
+
+      //Removes the last added event from the array. You can't undo clear at the moment.
+      function undo() {
+        data.pop();
+        dataLastSevenDays.pop(event);
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+      }
+
+      //Updates the view of the vega lite visualizaiton
+      function updateView() {
+        let changeset = vega.changeset().remove(() => true).insert(dataLastSevenDays);
+        view.change('dataset', changeset).run()
+      }
+
+
+      //Toggle between fullscreen and normal browser view
+      function toggleFullScreen() {
+        if (document.fullscreenElement) { 
+          document.exitFullscreen() 
+        } else { 
+          document.documentElement.requestFullscreen() 
+        }     
+      }
+
+      //Get a JSON object from the local storage with as specified key
+      function getItemFromLocalStorage(key) {
+        if (typeof(Storage) !== "undefined") {
+          return JSON.parse(localStorage.getItem(key));
+        } else {
+          Console.log("Local Storage not supported");
+        }
+      }
+
+      //Save a JSON object to the local storage with as specified key
+      function setItemToLocalStorage(key, value) {
+        if (typeof(Storage) !== "undefined") {
+          localStorage.setItem(key, JSON.stringify(value));
+        } else {
+          Console.log("Local Storage not supported");
+        }
+      }
+
+      //Gets the data from the local storage. If there is no data in the local storage, creates an empty array
+      function intitalizeData() {
+        var localStorageData = getItemFromLocalStorage(LOCAL_STORAGE_KEY)
+        if (localStorageData) {
+          data = localStorageData;
+        }
+        else {
+          data = [];
+        }
+      }
+
+      function filterDataLastSevenDays() {
+        var today = new Date();
+        today.setHours(24,0,0,0);
+        var sevenDaysAgo = new Date().setDate(today.getDate() - 7);
+        sevenDaysAgo = new Date(sevenDaysAgo)
+        sevenDaysAgo.setHours(0,0,0,0);
+
+        data.forEach(function(entry) {
+          var date = new Date(Date.parse(entry.date));
+          if(date >= sevenDaysAgo && date <= today) {
+            dataLastSevenDays.push(entry);
+          }
+        });
+      }
+
+      function createDayDomain() {
+        var weekDays = [];
+        var today = new Date();
+        for (i = 0; i < 7; i++) {
+          var date = new Date();
+          date.setDate(date.getDate()-i);
+          weekDays.push(date.getWeekDay());
+        }
+        return weekDays.reverse();
+      }
+
+      //Creates a generic event with date, timestamp,cycle, version, author and name
+      function createGenericEvent() {
+        return { 
+          id:         uuidv4(),                  //Unique ID of the event object
+          date:       (new Date()).toString(),   //Date as String
+          timestamp:  Date.now(),                //Timestamp in milliseconds - for UNIX time stamp convert to seconds
+          cycle:      CYCLE,                      //Starting from 1 for the first cycle
+          version:    VERSION,                   //Starting from 1 for the current visualization 
+          author:     AUTHOR,                    //Author initials (e.g. nb for Nathalie Bressa)
+          name:       NAME,                      //Name of the visualiztion in the format cycle_version_author_shortname
+        };
+      }
+
+      //Add any additional attributes to the event that are specific to the visualization. In this case, add a type to the event.
+      function createEvent(answer) {
+        var event = createGenericEvent();
+        event.answer = answer;
+        var date = new Date(Date.parse(event.date));
+        event.day = date.getDate();
+        return event;
+      }
+
+      //Saves a json file of the current data with the specified name of the visualization
+      function saveJSONFile() {
+        downloadFile(data, NAME + '.json', 'text/plain');
+      }
+
+      //Downloads a file with the specified content, filename and content type
+      function downloadFile(content, fileName, contentType) {
+        var a = document.createElement("a");
+        var file = new Blob([JSON.stringify(content)], {type: contentType});
+        a.href = URL.createObjectURL(file);
+        document.body.appendChild(a);
+        a.download = fileName;
+        a.click();
+      }
+
+      //Generates a UUID for an event object
+      function uuidv4() {
+        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+          (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+          );
+      }
+
+      function refreshAt(hours, minutes, seconds) {
+        var now = new Date();
+        var then = new Date();
+
+        if(now.getHours() > hours ||
+         (now.getHours() == hours && now.getMinutes() > minutes) ||
+         now.getHours() == hours && now.getMinutes() == minutes && now.getSeconds() >= seconds) {
+          then.setDate(now.getDate() + 1);
+        }
+        then.setHours(hours);
+        then.setMinutes(minutes);
+        then.setSeconds(seconds);
+        var timeout = (then.getTime() - now.getTime());
+        setTimeout(function() { window.location.reload(true); }, timeout);
+      }
+
+    //data.forEach(function(entry){
+    //  var date = new Date(Date.parse(entry.date));
+    //  entry.day = date.getDate();
+    //})
+    //console.log(dataLastSevenDays)
+
+      //Embedd visualziation into container with id 'vis', intitialize the data and update the view
+      vegaEmbed('#vis', vlSpec).then(function(result) {
+        window.view = result.view;
+        intitalizeData();
+        filterDataLastSevenDays();
+        let changeset = vega.changeset().remove(() => true).insert(dataLastSevenDays);
+        result.view.change('dataset', changeset).run()
+      });
+
+      refreshAt(0,1,0);
+
+
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+    </html>

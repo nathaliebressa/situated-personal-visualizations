@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+  <meta charset="utf-8" />
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <!-- Bootstrap -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@100;700&display=swap');
+
+    html, body{
+      font-family:Roboto;
+      margin: 0px;
+      overflow: hidden;
+    }
+
+    #err {
+      font-size: 2vw;
+      background-color: #fb0;
+      width:100vw;
+    }
+
+    #top {
+      width: 100vw;
+      height: 4vw;
+      font-size: 3vw;
+      padding: 0vw 2vw;
+      margin: -.5vw 0vw;
+      z-index: 200;
+    }
+
+    #top>#title{
+      font-weight:700;
+    }
+
+    #top>#interval{
+      font-size: 2vw;
+      position: absolute;
+      right: 3vw;
+      top: .5vw;
+    }
+
+    #vis {
+      height: 11vw;
+      width: 100vw;
+      padding: 0vw 2vw;
+      overflow: hidden;
+    }
+
+    .day{
+      display:inline-block;
+      position: relative;
+      font-size:6vw;
+      font-weight: 700;
+      text-align: center;
+      height: 10vw;
+      margin: 0px;
+      padding: 0px;
+      cursor: pointer;
+    }
+
+    .day.firstOfMonth{
+      border-left: 5px solid #7f7f7f;
+    }
+
+    .day.firstOfWeek{
+      border-left: 1px solid #ccc;
+    }
+
+    .day .label{
+      position:absolute;
+      color: #ddd;
+      top: 1vw;
+      width: 100%;
+
+    }
+
+    .day:last-of-type .label{
+      color: #bbb;
+    }
+
+    .day .label, .day .amount{
+      z-index: 100;
+      cursor: pointer;
+      user-select: none;
+      -moz-user-select: none;
+    }
+
+    .day .amount{
+      position: absolute;
+      top: 7.5vw;
+      width: 100%;
+      font-size: 2vw;
+      font-weight: 100;
+      color: black;
+    }
+
+    .day.selected .label{
+      color:black;
+      font-weight: 100;
+    }
+
+    .day .mark{
+      position: absolute;
+      padding: 0px;
+      z-index: -100;
+    }
+
+    .day .mark.circle{
+      border-radius: 100%;
+      background: radial-gradient(circle, rgba(244, 244, 244, 0.63) 0%, rgba(149, 149, 149, 0.63) 100%);
+    }
+
+    .day .mark.bar{
+      background: linear-gradient(0deg, #fff, #555);
+    }
+
+    .day .streakPill{
+      background-color: #333;
+      position: absolute;
+      right: -.2vw;
+      border-radius:3vw;
+      color: white;
+      font-size: 2.4vw;
+      padding: 0vw 1.2vw;
+      z-index: 100;
+    }
+
+    .day.streak .streakBar{
+      position: absolute;
+      width:100%;
+      top:1.5vw;
+      border-top: .5vw solid #333;
+    }
+
+    .month{
+      position: absolute;
+      width:100%;
+      font-weight: 100;
+      font-size: 3vw;
+      color: black;
+    }
+
+  </style>
+</head>
+<body>
+  <div id="err"></div>
+
+  <div id="top">
+    <div id="title"></div>
+    <!-- Last Entry counter -->
+    <div id="interval"></div>
+
+    <!-- Dropdown menu -->
+    <!--<div class="btn-group dropleft">
+      <button type="button" class="btn btn-outline-dark dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"></button>
+      <div class="dropdown-menu">
+        <a class="dropdown-item" href="#" onclick="toggleFullScreen()">Fullscreen</a>
+        <a class="dropdown-item" href="#" onclick="saveJSONFile()">Save JSON</a>
+      </div>
+    </div> -->
+
+  </div>
+
+  <!-- Container for the visualization -->
+  <div id="vis"></div>
+    
+</body>
+<script>
+      window.onerror = function myErrorHandler(errorMsg, url, lineNumber) {
+        document.getElementById("err").innerHTML="Error occured: " + errorMsg;
+        return false;
+      };
+
+      //Attributes of the visualization. Need to be updated/newly specified for each cycle.  
+      var CYCLE = 12;
+      var VERSION = 1;
+      var AUTHOR = "ww";
+      var SHORT_NAME = "oneline";
+      var NAME = CYCLE + "_" + VERSION + "_" + AUTHOR + "_" + SHORT_NAME;
+
+      //Get variables from the URL
+      var urlVars = getUrlVars();
+
+      //Key to access the data in the local storage
+      var LOCAL_STORAGE_KEY = NAME; 
+      if(urlVars.key) 
+        LOCAL_STORAGE_KEY += ("_" + urlVars.key);
+
+      //Global Variables for The Vis
+      var title = (urlVars.title != undefined) ? urlVars.title : "" ;
+      var numDays = (urlVars.numDays != undefined) ? 
+        parseInt(urlVars.numDays) : 12; //number of days displayed
+      var maxValue = (urlVars.maxValue != undefined) ? 
+        parseInt(urlVars.maxValue) : 10; //largest value allowed
+      var accentColor = (urlVars.accentColor != undefined) ? 
+        urlVars.accentColor : ""; //accent colors for circles
+      var showStreaks = (urlVars.showStreaks != undefined) ? 
+        (urlVars.showStreaks.toLowerCase() == "true")  : true; //
+      var streakSkips = (urlVars.streakSkips != undefined) ? 
+        (urlVars.streakSkips.toLowerCase() == "true") : true;
+      var streakColor = (urlVars.streakColor != undefined) ? urlVars.streakColor : "";
+      var markType = (urlVars.markType != undefined) ? urlVars.markType : "circle";
+      //TODO: handle these!
+      var streakThreshold = (urlVars.streakThreshold != undefined) ? 
+        parseInt(urlVars.streakThreshold) : 1;
+      var streakThresholdIsMin = (urlVars.streakThresholdIsMin != undefined) ? 
+        (urlVars.streakThresholdIsMin.toLowerCase() == "true") : true;
+      
+
+      //The data that is displayed in the visualization
+      var data;
+
+      //Update method for the interval counter (time since last)
+      function updateInterval(){
+          // Sort the data (copy rather than sort-in-place)
+          var sortData = data.concat();
+          sortData.sort(function(a,b)
+            {return a.timestamp - b.timestamp;});
+
+          var intervalDiv = document.getElementById("interval");
+          if(sortData.length > 0){
+            var interval = Date.now()-sortData[sortData.length - 1].timestamp;
+            var intervalS = Math.floor(interval/1000%60);
+            var intervalM = Math.floor(interval/(60*1000));
+            var intervalH = Math.floor(interval/(60*60*1000));
+            var intervalD = Math.floor(interval/(24*60*60*1000));
+            if(intervalD >= 3)
+              intervalDiv.innerHTML = intervalD + " Days";
+            else if(intervalH >= 3)
+              intervalDiv.innerHTML = intervalH + " Hours";
+            else if(intervalM >= 1)
+              intervalDiv.innerHTML = intervalM + " Mins";
+            else intervalDiv.innerHTML = "<1 Min";
+          }
+          else{
+            intervalDiv.innerHTML = "No Data";
+          }
+      }
+
+      // Updates a day's amount by one if it already exists, otherwise add
+      //  If new value exceeds maxValue, remove.
+      function incrementOrAddEvent(day, amount) {
+        for(var i = 0; i < data.length; i++){
+          var d = data[i];
+          if(d.day == day){
+            // If skips enabled - support special "skip" state after max and before reset.
+            if(streakSkips){
+              if(d.amount == "skip")
+                data.splice(i, 1);
+              else{
+                d.amount = (d.amount + 1);
+                if(d.amount > maxValue)
+                  d.amount = "skip";
+              }
+            } 
+            // If skips aren't enabled - old behavior
+            else{
+              d.amount = (d.amount + 1);
+              if(d.amount > maxValue){
+                data.splice(i, 1);
+              }
+            }
+            setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+            updateView();
+            return;
+          }
+        }
+        //If doesn't already exist, then add
+        addEvent(day,1);
+      }
+
+      function addEvent(day,amount) {
+        var event = createEvent(day,amount);
+        data.push(event);
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+      }
+
+      //Clears all data
+      function clearData() {
+        data = [];
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        location.reload();
+      }
+
+      //Removes the last added event from the array. You can't undo clear at the moment.
+      function undo() {
+        data.pop();
+        setItemToLocalStorage(LOCAL_STORAGE_KEY,data);
+        updateView();
+        //updateInterval();
+      }
+
+      //Toggle between fullscreen and normal browser view
+      function toggleFullScreen() {
+        if (document.fullscreenElement) { 
+          document.exitFullscreen();
+        } else { 
+          document.documentElement.requestFullscreen();
+        }     
+      }
+
+      //Get a JSON object from the local storage with as specified key
+      function getItemFromLocalStorage(key) {
+        if (typeof(Storage) !== "undefined") {
+          return JSON.parse(localStorage.getItem(key));
+        } else {
+          Console.log("Local Storage not supported");
+        }
+      }
+
+      // Save a JSON object to the local storage with as specified key
+      function setItemToLocalStorage(key, value) {
+        if (typeof(Storage) !== "undefined") {
+          localStorage.setItem(key, JSON.stringify(value));
+        } else {
+          Console.log("Local Storage not supported");
+        }
+      }
+
+      // Gets the data from the local storage. If there is no data in the local storage, creates an empty array
+      function intitalizeData() {
+        var localStorageData = getItemFromLocalStorage(LOCAL_STORAGE_KEY);
+        if (localStorageData) {
+          data = localStorageData;
+        }
+        else {
+          data = [];
+        }
+      }
+
+      // Sets up the visualization by creating divs for all of the dates
+      function initializeView(){
+        var months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+
+        // Set title
+        document.getElementById("title").innerHTML = title;
+
+        // Clear the vis
+        document.getElementById("vis").innerHTML = '';
+
+        // Get a timestamp to represent today -- we use 0:00 UTC for the current day.
+        var now = new Date(); // Get date object for our current time zone
+        var todayStartUTC = Date.UTC(now.getFullYear(),now.getMonth(),now.getDate()); // Get UTC timestamp for the beginning of our current day
+        var todayDate = new Date(todayStartUTC); 
+
+        // Generate list of timestamps for days we'll visualize
+        // -- want entries for all days in the prior X calendar weeks
+        var dayTimestamps = [];
+        for(var i=0; i < numDays; i++)
+          dayTimestamps.unshift(todayStartUTC - i*(24 * 60 * 60 * 1000));
+
+        // Create divs for all of the days
+        for (var i=0; i< dayTimestamps.length; i++){
+          var timestamp = dayTimestamps[i];
+          // Get a date object for that day (in UTC) 
+          var dayLocal = new Date(timestamp); // Date() converts timestamp to local time
+          var dayDate = new Date(dayLocal.getTime() + dayLocal.getTimezoneOffset() * 60 * 1000); //Shift date using timezone offset to approximate UTC.
+
+          var dayNumber = dayDate.getDate();
+          var weekDay = dayDate.getDay();
+
+          // Root div for day
+          var dayDiv = document.createElement("div");
+          dayDiv.className = "day";
+          dayDiv.id = timestamp;
+          dayDiv.timestamp = timestamp;
+          dayDiv.dayNum = dayNumber;
+          dayDiv.style.width = 100/numDays + "%";
+
+          // Style first day of week to show inter-week boundary
+          if(weekDay == 0){
+            dayDiv.classList.add("firstOfWeek");
+          }
+
+          // Style first week of a new month to show inter-month boundary
+          if(dayNumber == 1){
+            dayDiv.classList.add("firstOfMonth");
+          }
+
+          // Marks (circle, bar, etc.)
+          var dayMark = document.createElement("div");
+          dayMark.className = "mark";
+          if(markType != "")
+            dayMark.classList.add(markType);
+          if(accentColor){
+            if(markType == "circle")
+              dayMark.style.background = "radial-gradient(circle, #fff, " + accentColor + ")";
+            else dayMark.style.background =  "linear-gradient(0deg, #fff, " + accentColor + ")";
+          }
+          dayDiv.appendChild(dayMark);
+
+
+          // Streak bar
+          var streakBar = document.createElement("div");
+          streakBar.className = "streakBar";
+          if(streakColor)
+            streakBar.style["border-color"] = streakColor;
+          else if(accentColor)
+            streakBar.style["border-color"] = accentColor;
+          dayDiv.appendChild(streakBar);
+
+          // Streak pill
+          var streakPill = document.createElement("span");
+          streakPill.innerHTML = "";
+          streakPill.className = "streakPill";
+          if(streakColor)
+            streakPill.style.background = streakColor;
+          else if(accentColor)
+            streakPill.style.background = accentColor;
+          dayDiv.appendChild(streakPill);
+
+          // Month Label
+          if(dayNumber == 1){
+            var monthLabel = document.createElement("div");
+            monthLabel.className = "month";
+            monthLabel.innerHTML = months[dayDate.getMonth()];
+            dayDiv.appendChild(monthLabel);
+          }
+
+          // Label
+          var dayLabel = document.createElement("div");
+          dayLabel.className = "label";
+          dayLabel.innerHTML = dayNumber;
+          dayDiv.appendChild(dayLabel);
+
+          // Amount label
+          var amountLabel = document.createElement("div");
+          amountLabel.className = "amount";
+          dayDiv.appendChild(amountLabel);
+
+          document.getElementById("vis").appendChild(dayDiv);
+          dayLabel.onclick = function(){
+            incrementOrAddEvent(this.parentNode.id);
+            updateView();
+            updateInterval();
+          };
+
+        }
+      }
+
+      //Updates the view visualization -- draw marks for all values
+      function updateView() {
+        // Identify streaks
+        var streakEnds = {};
+        var oneDayInMS = 24*60*60*1000;
+        var sortedDays = data.map(function(day){return parseInt(day.day)}).sort();
+        var dayX1 = sortedDays.shift();
+        var streakCount = 1;
+        for (var i=0; i < data.length - 1; i++){
+          var dayX2 = sortedDays.shift();
+          if(dayX2 - dayX1 == oneDayInMS){
+            streakCount++;
+          }
+          else{
+            streakEnds[dayX1] = streakCount;
+            streakCount = 1;
+          }
+          dayX1 = dayX2;
+        }
+        streakEnds[dayX1] = streakCount;
+
+        // Clear old values and styling (in case of a deletion)
+        var dayDivs = document.getElementsByClassName("day");
+        for (var i=0; i < dayDivs.length; i++){
+          var dayDiv = dayDivs[i];
+          dayDiv.classList.remove("selected");
+          dayDiv.classList.remove("streak");
+          var mark = dayDiv.getElementsByClassName("mark")[0];
+          if(markType=="circle" || markType=="bar"){
+              mark.style.width = 0;
+              mark.style.height = 0;
+          }
+          else if(markType.length==1){
+              var label = dayDiv.getElementsByClassName("label")[0];
+              label.innerHTML = dayDiv.dayNum;
+          }
+          dayDiv.getElementsByClassName("amount")[0].innerHTML = "";
+          var streakPill = dayDiv.getElementsByClassName("streakPill")[0];
+          streakPill.style.display = "none";
+        }
+
+        // Update all marks and streaks in the vis
+        for (var i=0; i < data.length; i++){
+          var entry = data[i];
+          try{
+            var dayDiv = document.getElementById(entry.day);
+            dayDiv.classList.add("selected");
+            var mark = dayDiv.getElementsByClassName("mark")[0];
+            if(markType=="circle"){
+                var circleRadius = Math.sqrt(entry.amount)/Math.sqrt(maxValue) * dayDiv.clientWidth + "px";
+                mark.style.width = circleRadius;
+                mark.style.height = circleRadius;
+                mark.style.left = (-mark.clientWidth/2 + dayDiv.clientWidth/2)+"px";
+                mark.style.top = (-mark.clientHeight/2 + dayDiv.clientWidth/2)+"px";
+            }
+            else if(markType=="bar"){
+                var barHeight = entry.amount/maxValue * dayDiv.clientWidth;
+                mark.style.width = "100%";//dayDiv.clientWidth + "px";
+                mark.style.height = barHeight + "px";
+                mark.style.top = (dayDiv.clientWidth - barHeight) + "px";
+            }
+            else if(markType.length == 1){
+                var label = dayDiv.getElementsByClassName("label")[0];
+                label.innerHTML = markType;//"&#10005;";
+            }
+            var amount = dayDiv.getElementsByClassName("amount")[0];
+            if(maxValue > 1 || entry.amount == "skip")
+              amount.innerHTML = entry.amount;
+            if(showStreaks)
+              dayDiv.classList.add("streak");
+            if(showStreaks && streakEnds[entry.day]){
+              var streak = dayDiv.getElementsByClassName("streakPill")[0];
+              streak.style.display = "";
+              streak.innerHTML = streakEnds[entry.day];
+            }
+          }
+          catch(err){
+            console.log("failed to find div for '" + entry.day + "'. " + err);
+          }
+        }
+      }
+
+      //Creates a generic event with date, timestamp,cycle, version, author and name
+      function createGenericEvent() {
+        return { 
+          id:         uuidv4(),                  //Unique ID of the event object
+          date:       (new Date()).toString(),   //Date as String
+          timestamp:  Date.now(),                //Timestamp in milliseconds - for UNIX time stamp convert to seconds
+          cycle:      CYCLE,                      //Starting from 1 for the first cycle
+          version:    VERSION,                   //Starting from 1 for the current visualization 
+          author:     AUTHOR,                    //Author initials (e.g. nb for Nathalie Bressa)
+          name:       NAME,                      //Name of the visualiztion in the format cycle_version_author_shortname
+        };
+      }
+
+      //Add any additional attributes to the event that are specific to the visualization. In this case, add a type to the event.
+      function createEvent(day,amount) {
+        var event = createGenericEvent();
+        event.day = day;
+        event.amount = amount;
+        return event;
+      }
+
+      //Saves a json file of the current data with the specified name of the visualization
+      function saveJSONFile() {
+        downloadFile(data, NAME + '.json', 'text/plain');
+      }
+
+      //Downloads a file with the specified content, filename and content type
+      function downloadFile(content, fileName, contentType) {
+        var a = document.createElement("a");
+        var file = new Blob([JSON.stringify(content)], {type: contentType});
+        a.href = URL.createObjectURL(file);
+        document.body.appendChild(a);
+        a.download = fileName;
+        a.click();
+        window.open(a.href); //Workaround for iOS
+      }
+
+      //Generates a UUID for an event object
+      function uuidv4() {
+        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, function(c){
+          return (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16);
+          });
+      }
+
+      // Grabbed from https://html-online.com/articles/get-url-parameters-javascript/
+      function getUrlVars() {
+          var vars = {};
+          var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
+              vars[key] = unescape(value);
+          });
+          return vars;
+      }
+
+
+
+      // -------------- On first load ---------
+
+      // On first load, initialize and immediately update 
+      function initAndUpdate(){
+        intitalizeData();
+        initializeView();
+        updateView();
+        updateInterval();
+      }
+      initAndUpdate();
+
+      // ...then update the interval timer every 10 minutes
+      setInterval(updateInterval,10*60000);
+
+      // ... and reload the page every hour
+      setInterval(initAndUpdate,3600000);
+
+    </script>
+    </html>
